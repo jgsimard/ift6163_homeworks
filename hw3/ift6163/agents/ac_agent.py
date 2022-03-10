@@ -15,7 +15,7 @@ class ACAgent(BaseAgent):
         self.env = env
         self.agent_params = agent_params
 
-        self.gamma = self.agent_params['gamma']
+        self.gamma = self.agent_params['discount']
         self.standardize_advantages = self.agent_params['standardize_advantages']
 
         self.actor = MLPPolicyAC(

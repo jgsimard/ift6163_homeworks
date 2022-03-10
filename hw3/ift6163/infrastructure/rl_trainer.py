@@ -9,7 +9,7 @@ from gym import wrappers
 import numpy as np
 import torch
 
-from ift6163.agents.mb_agent import MBAgent
+from ift6163.agents.dyna_agent import MBAgent
 from ift6163.infrastructure import pytorch_util as ptu
 from ift6163.infrastructure import utils
 from ift6163.infrastructure.logger import Logger
@@ -53,7 +53,6 @@ class RL_Trainer(object):
         # Make the gym environment
         self.env = gym.make(self.params['env_name'])
         print (self.env) 
-        sys.exit()
         if 'env_wrappers' in self.params:
             # These operations are currently only for Atari envs
             self.env = wrappers.Monitor(self.env, os.path.join(self.params['logdir'], "gym"), force=True)

@@ -12,7 +12,7 @@ class PGAgent(BaseAgent):
         # init vars
         self.env = env
         self.agent_params = agent_params
-        self.gamma = self.agent_params['gamma']
+        self.gamma = self.agent_params['discount']
         self.standardize_advantages = self.agent_params['standardize_advantages']
         self.nn_baseline = self.agent_params['nn_baseline']
         self.reward_to_go = self.agent_params['reward_to_go']
@@ -117,6 +117,7 @@ class PGAgent(BaseAgent):
                         ## 0 otherwise.
                     ## HINT 2: self.gae_lambda is the lambda value in the
                         ## GAE formula
+                    y=45 ## Remove: This is just to help with compiling
 
                 # remove dummy advantage
                 advantages = advantages[:-1]

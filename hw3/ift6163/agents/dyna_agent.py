@@ -1,6 +1,8 @@
 from .base_agent import BaseAgent
 from ift6163.models.ff_model import FFModel
-from ift6163.policies.MPC_policy import MPCPolicy
+from ift6163.policies.MLP_policy import MLPPolicyPG
+from ift6163.critics.bootstrapped_continuous_critic import \
+    BootstrappedContinuousCritic
 from ift6163.infrastructure.replay_buffer import ReplayBuffer
 from ift6163.infrastructure.utils import *
 

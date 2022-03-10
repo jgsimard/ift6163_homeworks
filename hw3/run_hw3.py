@@ -7,7 +7,7 @@ print(sys.path)
 
 from ift6163.agents.dyna_agent import MBAgent
 from ift6163.agents.pg_agent import PGAgent
-from ift6163.agents.ac_agent import ACagent
+from ift6163.agents.ac_agent import ACAgent
 from ift6163.infrastructure.rl_trainer import RL_Trainer
 import hydra, json
 from omegaconf import DictConfig, OmegaConf
@@ -20,33 +20,11 @@ class pg_Trainer(object):
         ## SET AGENT PARAMS
         #####################
 
-        computation_graph_args = {
-            'ensemble_size': params['ensemble_size'],
-            'n_layers_model': params['n_layers_model'],
-            'n_layers_policy': params['n_layers_policy'],
-            'size': params['size'],
-            'learning_rate': params['learning_rate'],
-            }
-
-        estimate_advantage_args = {
-            'gamma': params['discount'],
-            'standardize_advantages': not(params['dont_standardize_advantages']),
-            'reward_to_go': params['reward_to_go'],
-            'nn_baseline': params['nn_baseline'],
-            'gae_lambda': params['gae_lambda'],
-        }
-
-
-        train_args = {
-            'num_agent_train_steps_per_iter': params['num_agent_train_steps_per_iter'],
-            'discrete': False,
-            'ob_dim':  0,
-            'ac_dim': 0,
-        }
-
         
 
-        agent_params = {**computation_graph_args, **estimate_advantage_args , **train_args}
+        agent_params = {**params['computation_graph_args'],
+                         **params['estimate_advantage_args'] ,
+                          **params['train_args']}
 
         tmp = OmegaConf.create({'agent_params' : agent_params })
 
@@ -55,10 +33,13 @@ class pg_Trainer(object):
 
         if self.params['rl_alg'] == 'reinforce':
             agent = PGAgent
-        if self.params['rl_alg'] == 'ac':
-            agent = ACagent
-        if self.params['rl_alg'] == 'dyna':
-            agent = MBagent
+        elif self.params['rl_alg'] == 'ac':
+            agent = ACAgent
+        elif self.params['rl_alg'] == 'dyna':
+            agent = MBAgent
+        else:
+            print("Pick a rl_alg first")
+            sys.exit()
         print(self.params)
 
         ################
