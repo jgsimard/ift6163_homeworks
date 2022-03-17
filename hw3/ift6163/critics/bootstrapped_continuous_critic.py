@@ -71,9 +71,9 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
                     at that timestep of 0 if the episode did not end
 
             returns:
-                training loss
+                training_loss
         """
-        # TODO: Implement the pseudocode below: do the following (
+        # DONE: Implement the pseudocode below: do the following (
         # self.num_grad_steps_per_target_update * self.num_target_updates)
         # times:
         # every self.num_grad_steps_per_target_update steps (which includes the
@@ -86,5 +86,26 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
         #       to 0) when a terminal state is reached
         # HINT: make sure to squeeze the output of the critic_network to ensure
         #       that its dimensions match the reward
+
+        # numpy -> pytorch
+        ob_no = ptu.from_numpy(ob_no)
+        next_ob_no = ptu.from_numpy(next_ob_no)
+        reward_n = ptu.from_numpy(reward_n)
+        terminal_n = ptu.from_numpy(terminal_n).bool()
+
+        for _ in range(self.num_target_updates):
+            # compute target values for the next num_grad_steps_per_target_update
+            v_s_prime = self.forward(next_ob_no)
+            v_s_prime[terminal_n] = 0
+
+            targets = (reward_n + self.gamma * v_s_prime).detach()
+            for _ in range(self.num_grad_steps_per_target_update):
+                # compute V(s)
+                v_s = self.forward(ob_no)
+                # optimize V(s)
+                self.optimizer.zero_grad()
+                loss = self.loss(v_s, targets)
+                loss.backward()
+                self.optimizer.step()
 
         return loss.item()

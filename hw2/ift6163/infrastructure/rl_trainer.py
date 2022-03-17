@@ -229,7 +229,7 @@ class RL_Trainer(object):
     ####################################
     ####################################
     def perform_logging(self, itr, paths, eval_policy, train_video_paths, all_logs):
-
+        # print(all_logs)
         last_log = all_logs[-1]
 
         #######################

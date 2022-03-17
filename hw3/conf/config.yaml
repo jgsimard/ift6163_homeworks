@@ -1,5 +1,5 @@
 
-env_name: 'CartPole-v0' # ['cheetah-ift6163-v0', 'reacher-ift6163-v0', 'obstacles-ift6163-v0' ]
+env_name: 'CartPole-v0' # [ ]
 ep_len: 200
 exp_name: 'todo'
 n_iter: 1
@@ -18,9 +18,10 @@ seed: 1
 no_gpu: False
 which_gpu: 0
 video_log_freq: -1
-scalar_log_freq: -1
+scalar_log_freq: 5
 save_params: True
-rl_alg: 'todo'
+rl_alg: 'reinforce' #'reinforce', 'ac' or 'dyna'
+
 
 computation_graph_args:
    learning_rate: 0.001
@@ -32,9 +33,9 @@ computation_graph_args:
    
 estimate_advantage_args:
    discount: 0.95
-   gae_lambda: 0.9
-   standardize_advantages: False
-   reward_to_go: True
+   gae_lambda: null
+   standardize_advantages: True
+   reward_to_go: False
    nn_baseline: False
    
 train_args:
@@ -44,6 +45,7 @@ train_args:
    discrete: False
    ob_dim:  0
    ac_dim: 0
+   use_gen_data: False
 
    
 

@@ -9,12 +9,12 @@
 
 #--time=1:0:0 --account=rrg-bengioy-ad --gres=gpu:1 --cpus-per-task=12 --mem=124G
 
-module load python/3.7
-cd
-source ift6163/bin/activate
-cd scratch/ift6163_homeworks/hw2/
-
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jgsimard/.mujoco/mujoco200/bin
+#module load python/3.7
+#cd
+#source ift6163/bin/activate
+#cd scratch/ift6163_homeworks/hw2/
+#
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jgsimard/.mujoco/mujoco200/bin
 
 
 python run_hw2_mb.py exp_name=q1_cheetah_n500_arch1x32 \
