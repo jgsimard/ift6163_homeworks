@@ -1,1 +1,13 @@
 .idea/
+
+hw3/ift6163/__pycache__/
+hw3/ift6163/agents/__pycache__/
+hw3/ift6163/critics/__pycache__/
+hw3/ift6163/envs/__pycache__/
+hw3/ift6163/envs/cheetah/__pycache__/
+hw3/ift6163/infrastructure/__pycache__/
+hw3/ift6163/models/__pycache__/
+hw3/ift6163/policies/__pycache__/
+
+hw3/outputs/
+hw3/run logs/
