@@ -56,7 +56,7 @@ class TD3Critic(DDPGCritic):
         self.optimizer.step()
         self.learning_rate_scheduler.step()
         return {
-            'Training Loss': ptu.to_numpy(loss),
+            'Training_Loss': ptu.to_numpy(loss),
         }
 
 

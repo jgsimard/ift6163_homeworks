@@ -113,7 +113,7 @@ class DDPGCritic(BaseCritic):
         self.optimizer.step()
         self.learning_rate_scheduler.step()
         return {
-            'Training Loss': ptu.to_numpy(loss),
+            'Training_Loss': ptu.to_numpy(loss),
         }
 
     def update_target_network(self):

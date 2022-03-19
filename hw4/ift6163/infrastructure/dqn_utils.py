@@ -37,7 +37,9 @@ def register_custom_envs():
 
 
 def get_env_kwargs(env_name):
+    print("############ HELLO IS THIS ME YOUR LOOKING FOR ##################")
     if env_name in ['MsPacman-v0', 'PongNoFrameskip-v4']:
+        print("CANAARD ##################")
         kwargs = {
             'learning_starts': 50000,
             'target_update_freq': 10000,
@@ -55,6 +57,8 @@ def get_env_kwargs(env_name):
         kwargs['exploration_schedule'] = atari_exploration_schedule(kwargs['num_timesteps'])
 
     elif env_name == 'LunarLander-v3':
+        print("TWEEEEEEEEEEEEEEEEERK")
+        # exit(1)
         def lunar_empty_wrapper(env):
             return env
         kwargs = {
@@ -81,6 +85,7 @@ def get_env_kwargs(env_name):
 
 
 def create_lander_q_network(ob_dim, num_actions):
+    print("################# create_lander_q_network #############")
     return nn.Sequential(
         nn.Linear(ob_dim, 64),
         nn.ReLU(),
@@ -104,6 +109,7 @@ class PreprocessAtari(nn.Module):
 
 
 def create_atari_q_network(ob_dim, num_actions):
+    print("################# create_atari_q_network #############")
     return nn.Sequential(
         PreprocessAtari(),
         nn.Conv2d(in_channels=4, out_channels=32, kernel_size=8, stride=4),
@@ -169,6 +175,7 @@ def lander_optimizer():
 
 
 def lander_exploration_schedule(num_timesteps):
+    print("############ lander_exploration_schedule ################")
     return PiecewiseSchedule(
         [
             (0, 1),

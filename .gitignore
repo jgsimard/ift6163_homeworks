@@ -26,3 +26,6 @@ hw4/ift6163/policies/__pycache__/
 
 hw4/outputs/
 hw4/data/
+
+hw4/ift6163/envs/box2d/__pycache__/
+hw4/ift6163/util/__pycache__/

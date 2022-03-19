@@ -13,4 +13,5 @@ class BaseAgent(object):
         raise NotImplementedError
 
     def save(self, path):
+        # pass
         raise NotImplementedError
