@@ -10,6 +10,7 @@ import torch.optim as optim
 
 from ift6163.infrastructure.atari_wrappers import wrap_deepmind
 from gym.envs.registration import register
+import ift6163.util.class_util as classu
 
 import torch
 
@@ -336,8 +337,12 @@ def get_wrapper_by_name(env, classname):
         else:
             raise ValueError("Couldn't find wrapper named %s"%classname)
 
+
 class MemoryOptimizedReplayBuffer(object):
-    def __init__(self, size, frame_history_len, lander=False):
+    
+    @classu.hidden_member_initialize
+    def __init__(self, size, frame_history_len, 
+                 lander=False, continuous_actions=False, ac_dim=None):
         """This is a memory efficient implementation of the replay buffer.
 
         The sepecific memory optimizations use here are:
@@ -363,10 +368,6 @@ class MemoryOptimizedReplayBuffer(object):
         frame_history_len: int
             Number of memories to be retried for each observation.
         """
-        self.lander = lander
-
-        self.size = size
-        self.frame_history_len = frame_history_len
 
         self.next_idx      = 0
         self.num_in_buffer = 0
@@ -413,7 +414,8 @@ class MemoryOptimizedReplayBuffer(object):
             (batch_size, img_h, img_w, img_c * frame_history_len)
             and dtype np.uint8
         act_batch: np.array
-            Array of shape (batch_size,) and dtype np.int32
+            Array of shape (batch_size,) and dtype np.int32 or 
+            (batch_size,ac_dim) and dtype = np.float32 if continuous actions
         rew_batch: np.array
             Array of shape (batch_size,) and dtype np.float32
         next_obs_batch: np.array
@@ -438,28 +440,28 @@ class MemoryOptimizedReplayBuffer(object):
             encodes frame at time `t - frame_history_len + i`
         """
         assert self.num_in_buffer > 0
-        return self._encode_observation((self.next_idx - 1) % self.size)
+        return self._encode_observation((self.next_idx - 1) % self._size)
 
     def _encode_observation(self, idx):
         end_idx   = idx + 1 # make noninclusive
-        start_idx = end_idx - self.frame_history_len
+        start_idx = end_idx - self._frame_history_len
         # this checks if we are using low-dimensional observations, such as RAM
         # state, in which case we just directly return the latest RAM.
         if len(self.obs.shape) == 2:
             return self.obs[end_idx-1]
         # if there weren't enough frames ever in the buffer for context
-        if start_idx < 0 and self.num_in_buffer != self.size:
+        if start_idx < 0 and self.num_in_buffer != self._size:
             start_idx = 0
         for idx in range(start_idx, end_idx - 1):
-            if self.done[idx % self.size]:
+            if self.done[idx % self._size]:
                 start_idx = idx + 1
-        missing_context = self.frame_history_len - (end_idx - start_idx)
+        missing_context = self._frame_history_len - (end_idx - start_idx)
         # if zero padding is needed for missing context
         # or we are on the boundry of the buffer
         if start_idx < 0 or missing_context > 0:
             frames = [np.zeros_like(self.obs[0]) for _ in range(missing_context)]
             for idx in range(start_idx, end_idx):
-                frames.append(self.obs[idx % self.size])
+                frames.append(self.obs[idx % self._size])
             return np.concatenate(frames, 2)
         else:
             # this optimization has potential to saves about 30% compute time \o/
@@ -482,15 +484,18 @@ class MemoryOptimizedReplayBuffer(object):
             Index at which the frame is stored. To be used for `store_effect` later.
         """
         if self.obs is None:
-            self.obs      = np.empty([self.size] + list(frame.shape), dtype=np.float32 if self.lander else np.uint8)
-            self.action   = np.empty([self.size],                     dtype=np.int32)
-            self.reward   = np.empty([self.size],                     dtype=np.float32)
-            self.done     = np.empty([self.size],                     dtype=np.bool)
+            self.obs      = np.empty([self._size] + list(frame.shape),     dtype=np.float32 if self._lander else np.uint8)
+            ## If discrete actions then just need a list of integers
+            ## If continuous actions need a matrix to store action vector for each step
+            self.action   = np.empty([self._size] + list((self._ac_dim,)) if self._continuous_actions else [self._size], 
+                                     dtype=np.float32 if self._continuous_actions else np.int32)
+            self.reward   = np.empty([self._size],                         dtype=np.float32)
+            self.done     = np.empty([self._size],                         dtype=np.bool)
         self.obs[self.next_idx] = frame
 
         ret = self.next_idx
-        self.next_idx = (self.next_idx + 1) % self.size
-        self.num_in_buffer = min(self.size, self.num_in_buffer + 1)
+        self.next_idx = (self.next_idx + 1) % self._size
+        self.num_in_buffer = min(self._size, self.num_in_buffer + 1)
 
         return ret
 
