@@ -158,7 +158,7 @@ class RL_Trainer(object):
 
             # collect trajectories, to be used for training
             if isinstance(self.agent, DQNAgent) or isinstance(self.agent, DDPGAgent):
-                # only perform an env step and add to replay buffer for DQN
+                # only perform an env step and add to replay buffer for DQN and DDPG
                 self.agent.step_env()
                 envsteps_this_batch = 1
                 train_video_paths = None
@@ -187,7 +187,7 @@ class RL_Trainer(object):
             all_logs = self.train_agent()
 
             # log/save
-            if self.log_video or self.logmetrics:
+            if self.logvideo or self.logmetrics:
                 # perform logging
                 print('Beginning logging procedure...')
                 print(f"all_logs={all_logs}")

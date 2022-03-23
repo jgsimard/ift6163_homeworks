@@ -1,7 +1,7 @@
 import numpy as np
 
-from ift6163.infrastructure.dqn_utils import MemoryOptimizedReplayBuffer, PiecewiseSchedule
 from ift6163.infrastructure.replay_buffer import ReplayBuffer
+from ift6163.infrastructure.dqn_utils import MemoryOptimizedReplayBuffer
 from ift6163.policies.MLP_policy import MLPPolicyDeterministic
 from ift6163.critics.ddpg_critic import DDPGCritic
 import copy
@@ -12,8 +12,6 @@ class DDPGAgent(object):
     def __init__(self, env, agent_params):
 
         self.env = env
-        # print(env)
-        # exit()
         self.agent_params = agent_params
         print ("agent_params", agent_params)
         self.batch_size = agent_params['train_batch_size']
@@ -42,8 +40,7 @@ class DDPGAgent(object):
         ## Create the Q function
         self.q_fun = DDPGCritic(self.actor, agent_params, self.optimizer_spec)
 
-        # lander = agent_params['env_name'].startswith('LunarLander')
-        # self.replay_buffer = ReplayBuffer()
+        ## Hint: We can use the Memory optimized replay buffer but now we have continuous actions
         self.replay_buffer = MemoryOptimizedReplayBuffer(
             agent_params['replay_buffer_size'], agent_params['frame_history_len'], lander=True,
             continuous_actions=True, ac_dim=self.agent_params['ac_dim'])

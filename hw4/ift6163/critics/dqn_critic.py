@@ -34,13 +34,9 @@ class DQNCritic(BaseCritic):
 
         self.optimizer_spec = optimizer_spec
         network_initializer = hparams['q_func']
-        self.q_net = network_initializer(self.ob_dim, self.ac_dim * out_size)
-        self.q_net_target = network_initializer(self.ob_dim, self.ac_dim * out_size)
+        self.q_net = network_initializer(self.ob_dim, self.ac_dim)
+        self.q_net_target = network_initializer(self.ob_dim, self.ac_dim)
 
-        # self.optimizer = optim.Adam(
-        #     self.q_net.parameters(),
-        #     self.learning_rate,
-        #     )
         self.optimizer = self.optimizer_spec.constructor(
             self.q_net.parameters(),
             **self.optimizer_spec.optim_kwargs

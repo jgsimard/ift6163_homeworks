@@ -119,7 +119,6 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             return action_distribution
         else:
             if self._deterministic:
-                # print(observation.shape, type(observation))
                 ##  DONE :  output for a deterministic policy
                 action_distribution = self._mean_net(observation)
             else:
@@ -131,15 +130,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                     batch_mean,
                     scale_tril=batch_scale_tril,
                 )
-            # batch_mean = self._mean_net(observation)
-            # scale_tril = torch.diag(torch.exp(self._logstd))
-            # batch_dim = batch_mean.shape[0]
-            # batch_scale_tril = scale_tril.repeat(batch_dim, 1, 1)
-            # action_distribution = distributions.MultivariateNormal(
-            #     batch_mean,
-            #     scale_tril=batch_scale_tril,
-            # )
-            return action_distribution
+        return action_distribution
 
 #####################################################
 #####################################################
