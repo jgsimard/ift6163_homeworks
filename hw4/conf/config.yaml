@@ -36,4 +36,8 @@ discrete: True
 grad_norm_clipping: True
 n_iter: 1000
 polyak_avg: 0.01 ##
-td3_target_policy_noise: 0.1 ## 
+# TD3
+td3_target_policy_noise: 0.1 ##
+td3_target_policy_noise_clip: 1.0
+policy_delay: 1
+twin: False

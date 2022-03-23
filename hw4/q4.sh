@@ -14,9 +14,9 @@ python run_hw4.py exp_name=q4_ddpg_up_lr${LR} \
                   env_name=InvertedPendulum-v2 \
                   atari=false \
                   no_gpu=true \
-                  learning_freq=2 \
+                  learning_freq=1 \
                   discrete=false \
-                  learning_starts=1024 \
+                  learning_starts=64 \
                   n_iter=10000 \
                   video_log_freq=100
 

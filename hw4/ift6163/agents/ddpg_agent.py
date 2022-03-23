@@ -12,6 +12,7 @@ class DDPGAgent(object):
     def __init__(self, env, agent_params):
 
         self.env = env
+
         self.agent_params = agent_params
         print ("agent_params", agent_params)
         self.batch_size = agent_params['train_batch_size']
@@ -22,6 +23,7 @@ class DDPGAgent(object):
         self.learning_starts = agent_params['learning_starts']
         self.learning_freq = agent_params['learning_freq']
         self.target_update_freq = agent_params['target_update_freq']
+        self.policy_delay = agent_params['policy_delay']
 
         self.replay_buffer_idx = None
         self.optimizer_spec = agent_params['optimizer_spec']
@@ -108,9 +110,10 @@ class DDPGAgent(object):
             
             # DONE : fill in the call to the update function using the appropriate tensors
             ## Hint the actor will need a copy of the q_net to maximize the Q-function
-            log.update(self.actor.update(
-                ob_no, self.q_fun
-            ))
+            if self.num_param_updates % self.policy_delay == 0:
+                log.update(self.actor.update(
+                    ob_no, self.q_fun
+                ))
 
             # DONE : update the target network periodically
             # HINT: your critic already has this functionality implemented

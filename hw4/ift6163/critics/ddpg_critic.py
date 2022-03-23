@@ -26,14 +26,19 @@ class DDPGCritic(BaseCritic):
         self.double_q = hparams['double_q']
         self.grad_norm_clipping = hparams['grad_norm_clipping']
         self.gamma = hparams['gamma']
-        out_size = 1
+        if hparams['twin']:
+            out_size = 2
+        else:
+            out_size = 1
+
 
         self.optimizer_spec = optimizer_spec
         hparams = copy.deepcopy(hparams)
         hparams['ob_dim'] = hparams['ob_dim'] + hparams['ac_dim']
-        hparams['ac_dim'] = 1
+        print(f"hparams['ac_dim']={hparams['ac_dim']}")
+        # hparams['ac_dim'] = 1
         self.q_net = ConcatMLP(   
-            hparams['ac_dim'],
+            hparams['ac_dim'] * out_size,
             hparams['ob_dim'],
             hparams['n_layers_critic'],
             hparams['size_hidden_critic'],
@@ -43,7 +48,7 @@ class DDPGCritic(BaseCritic):
             deterministic=True
             )
         self.q_net_target = ConcatMLP(   
-            hparams['ac_dim'],
+            hparams['ac_dim'] * out_size,
             hparams['ob_dim'],
             hparams['n_layers_critic'],
             hparams['size_hidden_critic'],
@@ -135,12 +140,12 @@ class DDPGCritic(BaseCritic):
         for target_param, param in zip(
                 self.q_net_target.parameters(), self.q_net.parameters()
         ):
-            ## Perform Polyak averaging
+            # Perform Polyak averaging
             polyak(target_param, param, self.polyak_avg)
         for target_param, param in zip(
                 self.actor_target.parameters(), self.actor.parameters()
         ):
-            ## Perform Polyak averaging for the target policy
+            # Perform Polyak averaging for the target policy
             polyak(target_param, param, self.polyak_avg)
 
     def qa_values(self, obs):
