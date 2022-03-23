@@ -14,12 +14,10 @@ python run_hw4.py exp_name=q4_ddpg_up_lr${LR} \
                   env_name=InvertedPendulum-v2 \
                   atari=false \
                   no_gpu=true \
-                  learning_freq=1 \
+                  learning_freq=2 \
                   discrete=false \
                   learning_starts=1024 \
                   n_iter=10000 \
-                  num_agent_train_steps_per_iter=10 \
-                  num_critic_updates_per_agent_update=10 \
                   video_log_freq=100
 
 

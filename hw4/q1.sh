@@ -7,4 +7,4 @@
 #                  n_iter=200000 \
 #                  scalar_log_freq=100
 
-python run_hw4.py env_name=MsPacman-v0 exp_name=q1 n_iter=500000
+#python run_hw4.py env_name=MsPacman-v0 exp_name=q1 n_iter=500000

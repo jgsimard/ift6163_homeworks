@@ -187,7 +187,7 @@ class RL_Trainer(object):
             all_logs = self.train_agent()
 
             # log/save
-            if self.logvideo or self.logmetrics:
+            if self.log_video or self.logmetrics:
                 # perform logging
                 print('Beginning logging procedure...')
                 print(f"all_logs={all_logs}")

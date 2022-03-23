@@ -69,6 +69,7 @@ class DDPGAgent(object):
         observation = self.replay_buffer.encode_recent_observation()
         observation = ptu.from_numpy(observation)
         action = self.actor(observation)
+        # print(action)
         action = ptu.to_numpy(action)
         
         # DONE :  take a step in the environment using the action from the policy
@@ -107,9 +108,9 @@ class DDPGAgent(object):
             
             # DONE : fill in the call to the update function using the appropriate tensors
             ## Hint the actor will need a copy of the q_net to maximize the Q-function
-            log = self.actor.update(
+            log.update(self.actor.update(
                 ob_no, self.q_fun
-            )
+            ))
 
             # DONE : update the target network periodically
             # HINT: your critic already has this functionality implemented

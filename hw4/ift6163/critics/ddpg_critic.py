@@ -100,12 +100,12 @@ class DDPGCritic(BaseCritic):
         # print(f"ob_no={ob_no.shape}, ac_na={ac_na.shape}")
         ac_na = ac_na.view(-1, 1)
         # print(f"ob_no={ob_no.shape}, ac_na={ac_na.shape}")
-        q_t_values = self.q_net(ob_no, ac_na).squeeze()
+        q_t_values = self.q_net(ob_no, ac_na).squeeze() # the only thing that will be updated in this update function
         
         # DONE (maybe) compute the Q-values from the target network
         ## Hint: you will need to use the target policy
-        max_action = self.actor_target(next_ob_no)
-        q_tp1_values = self.q_net_target(next_ob_no, max_action).squeeze()
+        max_action_tp1 = self.actor_target(next_ob_no)
+        q_tp1_values = self.q_net_target(next_ob_no, max_action_tp1).squeeze()
         # print(f"max_action={max_action.shape}, q_tp1_values={q_tp1_values.shape}, next_ob_no={next_ob_no.shape}")
 
         # DONE :  compute targets for minimizing Bellman error
@@ -129,16 +129,19 @@ class DDPGCritic(BaseCritic):
         }
 
     def update_target_network(self):
+        def polyak(target_param, param, weight):
+            target_param.data.copy_(param.data * weight + target_param.data * (1.0 - weight))
+
         for target_param, param in zip(
                 self.q_net_target.parameters(), self.q_net.parameters()
         ):
             ## Perform Polyak averaging
-            target_param = self.polyak_avg * target_param + (1 - self.polyak_avg) * param
+            polyak(target_param, param, self.polyak_avg)
         for target_param, param in zip(
                 self.actor_target.parameters(), self.actor.parameters()
         ):
             ## Perform Polyak averaging for the target policy
-            target_param = self.polyak_avg * target_param + (1 - self.polyak_avg) * param
+            polyak(target_param, param, self.polyak_avg)
 
     def qa_values(self, obs):
         obs = ptu.from_numpy(obs)
