@@ -97,7 +97,10 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
         observation = ptu.from_numpy(observation)
         action_distribution = self.forward(observation)
-        action = action_distribution.sample()
+        if self._deterministic:
+            action = action_distribution
+        else:
+            action = action_distribution.sample()
         return ptu.to_numpy(action)
 
     # update/train this policy
@@ -116,6 +119,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             return action_distribution
         else:
             if self._deterministic:
+                # print(observation.shape, type(observation))
                 ##  DONE :  output for a deterministic policy
                 action_distribution = self._mean_net(observation)
             else:
@@ -221,6 +225,7 @@ class MLPPolicyPG(MLPPolicy):
         pred = self._baseline(observations)
         return ptu.to_numpy(pred.squeeze())
 
+
 class MLPPolicyAC(MLPPolicy):
     def update(self, observations, actions, adv_n=None):
         # DONE: update the policy and return the loss
@@ -237,7 +242,8 @@ class MLPPolicyAC(MLPPolicy):
         loss.backward()
         self.optimizer.step()
         return loss.item()
-    
+
+
 class ConcatMLP(MLPPolicy):
     """
     Concatenate inputs along dimension and then pass through MLP.
@@ -263,4 +269,29 @@ class MLPPolicyDeterministic(MLPPolicy):
         # TODO: update the policy and return the loss
         ## Hint you will need to use the q_fun for the loss
         ## Hint: do not update the parameters for q_fun in the loss
-        return loss.item()
+
+        observations = ptu.from_numpy(observations)
+
+        max_action = self.forward(observations)
+
+        # # freeze the critic
+        # for param in q_fun.q_net.parameters():
+        #     param.requires_grad = False
+
+        q_values = q_fun.q_net(observations, max_action)
+
+        loss = -q_values.mean()  # the minus is because we want to maximize the q_values
+
+        self._optimizer.zero_grad()
+        loss.backward()
+        self._optimizer.step()
+
+        # # unfreeze the critic
+        # for param in q_fun.q_net.parameters():
+        #     param.requires_grad = True
+
+        train_log = {
+            'Train_Policy_Loss': ptu.to_numpy(loss),
+        }
+
+        return train_log

@@ -5,11 +5,15 @@ from ift6163.infrastructure.replay_buffer import ReplayBuffer
 from ift6163.policies.MLP_policy import MLPPolicyDeterministic
 from ift6163.critics.ddpg_critic import DDPGCritic
 import copy
+from ift6163.infrastructure import pytorch_util as ptu
+
 
 class DDPGAgent(object):
     def __init__(self, env, agent_params):
 
         self.env = env
+        # print(env)
+        # exit()
         self.agent_params = agent_params
         print ("agent_params", agent_params)
         self.batch_size = agent_params['train_batch_size']
@@ -33,13 +37,16 @@ class DDPGAgent(object):
             learning_rate=self.agent_params['learning_rate'],
             nn_baseline=False
         )
+        print("Actor")
+        print(self.actor)
         ## Create the Q function
         self.q_fun = DDPGCritic(self.actor, agent_params, self.optimizer_spec)
 
-        lander = agent_params['env_name'].startswith('LunarLander')
-        self.replay_buffer = ReplayBuffer()
-        # self.replay_buffer = MemoryOptimizedReplayBuffer(
-        #     agent_params['replay_buffer_size'], agent_params['frame_history_len'], lander=lander)
+        # lander = agent_params['env_name'].startswith('LunarLander')
+        # self.replay_buffer = ReplayBuffer()
+        self.replay_buffer = MemoryOptimizedReplayBuffer(
+            agent_params['replay_buffer_size'], agent_params['frame_history_len'], lander=True,
+            continuous_actions=True, ac_dim=self.agent_params['ac_dim'])
         self.t = 0
         self.num_param_updates = 0
         
@@ -63,7 +70,9 @@ class DDPGAgent(object):
         # perform_random_action = TODO
         # HINT: take random action
         observation = self.replay_buffer.encode_recent_observation()
+        observation = ptu.from_numpy(observation)
         action = self.actor(observation)
+        action = ptu.to_numpy(action)
         
         # DONE :  take a step in the environment using the action from the policy
         # HINT1: remember that self.last_obs must always point to the newest/latest observation
@@ -88,23 +97,24 @@ class DDPGAgent(object):
 
     def train(self, ob_no, ac_na, re_n, next_ob_no, terminal_n):
         log = {}
+        # print(self.t > self.learning_starts, self.t % self.learning_freq == 0, self.replay_buffer.can_sample(self.batch_size))
         if (self.t > self.learning_starts
                 and self.t % self.learning_freq == 0
                 and self.replay_buffer.can_sample(self.batch_size)
         ):
 
-            # TODO fill in the call to the update function using the appropriate tensors
+            # DONE :  fill in the call to the update function using the appropriate tensors
             log = self.q_fun.update(
-                TODO
+                ob_no, ac_na, next_ob_no, re_n, terminal_n
             )
             
-            # TODO fill in the call to the update function using the appropriate tensors
+            # DONE : fill in the call to the update function using the appropriate tensors
             ## Hint the actor will need a copy of the q_net to maximize the Q-function
             log = self.actor.update(
-                TODO
+                ob_no, self.q_fun
             )
 
-            # TODO update the target network periodically 
+            # DONE : update the target network periodically
             # HINT: your critic already has this functionality implemented
             if self.num_param_updates % self.target_update_freq == 0:
                 self.q_fun.update_target_network()
@@ -113,3 +123,6 @@ class DDPGAgent(object):
 
         self.t += 1
         return log
+
+    def save(self, path):
+        pass

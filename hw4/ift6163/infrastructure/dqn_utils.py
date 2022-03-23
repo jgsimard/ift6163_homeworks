@@ -10,6 +10,7 @@ import torch.optim as optim
 
 from ift6163.infrastructure.atari_wrappers import wrap_deepmind
 from gym.envs.registration import register
+import ift6163.util.class_util as classu
 
 import torch
 

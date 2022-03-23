@@ -99,7 +99,7 @@ def my_app(cfg: DictConfig):
     with open_dict(cfg):
         cfg.logdir = logdir
 
-    print("\n\n\nLOGGING TO: ", logdir, "\n\n\n")
+    print("\nLOGGING TO: ", logdir, "\n")
 
     ###################
     ### RUN TRAINING

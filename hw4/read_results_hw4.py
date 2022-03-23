@@ -42,6 +42,23 @@ def get_section_results(file):
 #         plt.fill_between(batch_steps, eval_avg_return - eval_std_return, eval_avg_return + eval_std_return, alpha=0.2,
 #                          color=color)
 
+def pad(base, x):
+    return np.pad(x, (len(base) - len(x), 0), 'constant', constant_values=(-np.infty, 0))
+
+def q1(eventfiles):
+    eventfile = [e for e in eventfiles if "q1" in e][0]
+    print(eventfile)
+
+    steps, train_avg_return, train_max_return = get_section_results(eventfile)
+    plt.plot(steps /1e6, pad(steps, train_avg_return))
+
+    plt.title("Experiment 1")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Million steps")
+    # plt.axhline(y=1500, linestyle='-', label='150')
+    # plt.legend(loc="lower right")
+    plt.savefig(f'q1.png')
+    plt.show()
 
 
 def q2(eventfiles):
@@ -54,9 +71,9 @@ def q2(eventfiles):
         for eventfile in ef:
             s, r, b =get_section_results(eventfile)
             steps.append(s)
-            train_avg_return.append(np.pad(r, (len(s) - len(r), 0), 'constant', constant_values=(-np.infty, 0)))
-            train_max_return.append(np.pad(b, (len(s) - len(b), 0), 'constant', constant_values=(-np.infty, 0)))
-        steps = np.stack(steps) / 1000
+            train_avg_return.append(pad(s, r))
+            train_max_return.append(pad(s, b))
+        steps = np.stack(steps) / 1e6
         train_avg_return = np.vstack(train_avg_return)
         train_max_return = np.vstack(train_max_return)
         return steps, train_avg_return, train_max_return
@@ -70,8 +87,9 @@ def q2(eventfiles):
 
     p(steps_dqn, train_avg_return_dqn, 'dqn')
     p(steps_ddqn, train_avg_return_ddqn, 'double dqn')
-
     plt.title("Experiment 2 - Median Reward")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Million steps")
     plt.legend(loc="best")
     x1, x2, y1, y2 = plt.axis()
     plt.axis((x1, x2, -300, 150))
@@ -82,6 +100,8 @@ def q2(eventfiles):
     p(steps_ddqn, train_max_return_ddqn, 'double dqn')
 
     plt.title("Experiment 2 - Best Reward")
+    plt.ylabel("Best Episode Return")
+    plt.xlabel("Million steps")
     plt.legend(loc="best")
     plt.savefig(f'q2-best.png')
     x1, x2, y1, y2 = plt.axis()
@@ -96,7 +116,7 @@ if __name__ == '__main__':
     eventfiles = glob.glob(logdir)
     # print(eventfiles)
 
-    # q1(eventfiles)
+    q1(eventfiles)
     q2(eventfiles)
     # q3(eventfiles)
     # q4(eventfiles)

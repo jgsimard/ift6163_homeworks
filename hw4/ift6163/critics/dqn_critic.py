@@ -34,8 +34,8 @@ class DQNCritic(BaseCritic):
 
         self.optimizer_spec = optimizer_spec
         network_initializer = hparams['q_func']
-        self.q_net = network_initializer(self.ob_dim, self.ac_dim)
-        self.q_net_target = network_initializer(self.ob_dim, self.ac_dim)
+        self.q_net = network_initializer(self.ob_dim, self.ac_dim * out_size)
+        self.q_net_target = network_initializer(self.ob_dim, self.ac_dim * out_size)
 
         # self.optimizer = optim.Adam(
         #     self.q_net.parameters(),
@@ -122,7 +122,7 @@ class DQNCritic(BaseCritic):
     def qa_values(self, obs):
         obs = ptu.from_numpy(obs)
         qa_values = self.q_net(obs)
-        # what is this code?
+        # # what is this code?
         # if self.double_q:
-        #     qa_values = qa_values.view(-1,2,self.ac_dim)
+        #     qa_values = qa_values.view(-1, 2, self.ac_dim)
         return ptu.to_numpy(qa_values)
