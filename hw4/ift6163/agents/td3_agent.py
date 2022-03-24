@@ -17,5 +17,5 @@ class TD3Agent(DDPGAgent):
                                self.optimizer_spec, env)
 
         # for the Delayed part of Twin Delayed DDPG (TD3)
-        self.policy_delay = self.policy_delay if self.policy_delay > 1 else 2
+        self.policy_delay = 2 if agent_params['policy_delay'] == -1 else self.policy_delay
         

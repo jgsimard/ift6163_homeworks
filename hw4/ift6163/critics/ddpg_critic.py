@@ -9,6 +9,9 @@ from ift6163.infrastructure import pytorch_util as ptu
 from ift6163.policies.MLP_policy import ConcatMLP
 
 
+def polyak(target_param, param, weight):
+    target_param.data.copy_(param.data * weight + target_param.data * (1.0 - weight))
+
 class DDPGCritic(BaseCritic):
 
     def __init__(self, actor, hparams, optimizer_spec, **kwargs):
@@ -134,9 +137,6 @@ class DDPGCritic(BaseCritic):
         }
 
     def update_target_network(self):
-        def polyak(target_param, param, weight):
-            target_param.data.copy_(param.data * weight + target_param.data * (1.0 - weight))
-
         for target_param, param in zip(
                 self.q_net_target.parameters(), self.q_net.parameters()
         ):

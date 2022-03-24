@@ -135,9 +135,9 @@ class RL_Trainer(object):
         self.total_envsteps = 0
         self.start_time = time.time()
 
-        print_period = 1000 if isinstance(self.agent, DQNAgent) else 1
-        if isinstance(self.agent, DDPGAgent):
-            print_period=50
+        print_period = 1000 if isinstance(self.agent, DQNAgent) or  isinstance(self.agent, DDPGAgent) else 1
+        # if isinstance(self.agent, DDPGAgent):
+        #     print_period=50
         for itr in range(n_iter):
             if itr % print_period == 0:
                 print("\n\n********** Iteration %i ************"%itr)
@@ -190,7 +190,7 @@ class RL_Trainer(object):
             if self.log_video or self.logmetrics:
                 # perform logging
                 print('Beginning logging procedure...')
-                print(f"all_logs={all_logs}")
+                # print(f"all_logs={all_logs}")
                 if isinstance(self.agent, DQNAgent):
                     self.perform_dqn_logging(all_logs)
                 # elif isinstance(self.agent, DDPGAgent):
@@ -352,9 +352,9 @@ class RL_Trainer(object):
 
         # save eval metrics
         if self.logmetrics:
-            print(f"paths={paths}")
-            if paths is None:
-                print("no paths to log")
+            # print(f"paths={paths}")
+            # if paths is None:
+            #     print("no paths to log")
 
             # returns, for logging
             if paths is not None:

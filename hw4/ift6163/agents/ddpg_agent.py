@@ -23,7 +23,7 @@ class DDPGAgent(object):
         self.learning_starts = agent_params['learning_starts']
         self.learning_freq = agent_params['learning_freq']
         self.target_update_freq = agent_params['target_update_freq']
-        self.policy_delay = agent_params['policy_delay']
+        self.policy_delay = 1 if agent_params['policy_delay'] == -1 else agent_params['policy_delay']
 
         self.replay_buffer_idx = None
         self.optimizer_spec = agent_params['optimizer_spec']
@@ -65,9 +65,7 @@ class DDPGAgent(object):
             # in dqn_utils.py
         self.replay_buffer_idx = self.replay_buffer.store_frame(self.last_obs)
 
-        # TODO add noise to the deterministic policy
-        # perform_random_action = TODO
-        # HINT: take random action
+        # DONE : add noise to the deterministic policy
         observation = self.replay_buffer.encode_recent_observation()
         observation = ptu.from_numpy(observation)
         action = self.actor(observation)

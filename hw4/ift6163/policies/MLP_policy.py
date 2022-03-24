@@ -265,9 +265,9 @@ class MLPPolicyDeterministic(MLPPolicy):
 
         max_action = self.forward(observations)
 
-        # # freeze the critic
-        # for param in q_fun.q_net.parameters():
-        #     param.requires_grad = False
+        # freeze the critic
+        for param in q_fun.q_net.parameters():
+            param.requires_grad = False
 
         q_values = q_fun.q_net(observations, max_action)
 
@@ -277,9 +277,9 @@ class MLPPolicyDeterministic(MLPPolicy):
         loss.backward()
         self._optimizer.step()
 
-        # # unfreeze the critic
-        # for param in q_fun.q_net.parameters():
-        #     param.requires_grad = True
+        # unfreeze the critic
+        for param in q_fun.q_net.parameters():
+            param.requires_grad = True
 
         train_log = {
             'Train_Policy_Loss': ptu.to_numpy(loss),

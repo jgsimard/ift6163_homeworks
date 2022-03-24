@@ -40,7 +40,7 @@ class offpolicy_Trainer(object):
         ## RL TRAINER
         ################
 
-        self.rl_trainer = RL_Trainer(self.params , agent_class =  agent)
+        self.rl_trainer = RL_Trainer(self.params, agent_class=agent)
 
     def run_training_loop(self):
 
