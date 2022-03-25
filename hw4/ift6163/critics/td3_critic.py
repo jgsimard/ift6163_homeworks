@@ -7,19 +7,18 @@ import copy
 
 from ift6163.infrastructure import pytorch_util as ptu
 from ift6163.policies.MLP_policy import ConcatMLP
-from ift6163.critics.ddpg_critic import polyak
+from ift6163.critics.ddpg_critic import polyak_update
 
 
 class TD3Critic(DDPGCritic):
     def __init__(self, actor, hparams, optimizer_spec, env, **kwargs):
-        # hparams['twin'] = True  # for the Twin part of Twin Delayed DDPG (TD3)
         super().__init__(actor, hparams, optimizer_spec, **kwargs)
         self.target_policy_noise = hparams['td3_target_policy_noise']
         self.noise_clip = hparams['td3_target_policy_noise_clip']
         self.action_min = ptu.from_numpy(env.action_space.low)
         self.action_max = ptu.from_numpy(env.action_space.high)
-        self.twin = hparams['twin']
 
+        # create the Twin critic network and the corresponding target
         hparams = copy.deepcopy(hparams)
         hparams['ob_dim'] = hparams['ob_dim'] + hparams['ac_dim']
         self.q_net_2 = ConcatMLP(
@@ -30,7 +29,8 @@ class TD3Critic(DDPGCritic):
             discrete=False,
             learning_rate=hparams['critic_learning_rate'],
             nn_baseline=False,
-            deterministic=True
+            deterministic=True,
+            activation=hparams['activation']
         )
         self.q_net_target_2 = ConcatMLP(
             hparams['ac_dim'],
@@ -40,22 +40,20 @@ class TD3Critic(DDPGCritic):
             discrete=False,
             learning_rate=hparams['critic_learning_rate'],
             nn_baseline=False,
-            deterministic=True
+            deterministic=True,
+            activation=hparams['activation']
         )
 
         self.optimizer = optim.Adam(
             list(self.q_net.parameters()) + list(self.q_net_2.parameters()),
             self.learning_rate,
         )
+        self.q_net_2.to(ptu.device)
+        self.q_net_target_2.to(ptu.device)
 
     def update_target_network(self):
         super(TD3Critic, self).update_target_network()
-
-        for target_param, param in zip(
-                self.q_net_target_2.parameters(), self.q_net_2.parameters()
-        ):
-            # Perform Polyak averaging for the target policy
-            polyak(target_param, param, self.polyak_avg)
+        polyak_update(self.q_net_target_2, self.q_net_2, self.polyak_avg)
 
     def update(self, ob_no, ac_na, next_ob_no, reward_n, terminal_n):
         """
@@ -78,7 +76,6 @@ class TD3Critic(DDPGCritic):
         ob_no = ptu.from_numpy(ob_no)
         ac_na = ptu.from_numpy(ac_na).to(torch.long)
         next_ob_no = ptu.from_numpy(next_ob_no)
-        # max_ac = ptu.from_numpy(max_action)
         reward_n = ptu.from_numpy(reward_n)
         terminal_n = ptu.from_numpy(terminal_n)
 
@@ -87,34 +84,37 @@ class TD3Critic(DDPGCritic):
         q_t_values_2 = self.q_net_2(ob_no, ac_na).squeeze()
 
         # DONE : compute the Q-values from the target network
-        ## Hint: you will need to use the target policy
+        with torch.no_grad():
+            # compute clipped action
+            max_action_tp1 = self.actor_target(next_ob_no)
+            action_noise = torch.randn(self.ac_dim) * self.target_policy_noise # sample action noise
+            action_noise = action_noise.clamp(-self.noise_clip, self.noise_clip) # clip action noise
+            action = max_action_tp1 + action_noise.to(ptu.device) # add action noise to action
+            action = action.clamp(self.action_min, self.action_max) # clip noisy action
 
-        # compute clipped action
-        max_action_tp1 = self.actor_target(next_ob_no)
-        action_noise = torch.randn(self.ac_dim) * self.target_policy_noise
-        action_noise = action_noise.clamp(-self.noise_clip,self.noise_clip)
-        action = max_action_tp1 + action_noise
-        action_clip = action.clamp(self.action_min, self.action_max)
+            # next q_value estimates
+            q_tp1_values_1 = self.q_net_target(next_ob_no, action).squeeze()
+            q_tp1_values_2 = self.q_net_target_2(next_ob_no, action).squeeze()
 
+            # take the minimum next q_value
+            q_tp1_values = torch.min(q_tp1_values_1, q_tp1_values_2)
 
-        q_tp1_values_1 = self.q_net_target(next_ob_no, action_clip).squeeze()
-        q_tp1_values_2 = self.q_net_target_2(next_ob_no, action_clip).squeeze()
+            # DONE : compute targets for minimizing Bellman error
+            if len(q_t_values_1.shape) == 2:  # this is horrible code but it works for now
+                reward_n = reward_n.view(-1, 1)
+                terminal_n = terminal_n.view(-1, 1)
+            target = reward_n + self.gamma + q_tp1_values * (1 - terminal_n)
+            # target = target.detach()
 
-        # take the minimum q_value
-        q_tp1_values = torch.min(q_tp1_values_1, q_tp1_values_2)
-
-
-        # DONE : compute targets for minimizing Bellman error
-        target = reward_n + self.gamma + q_tp1_values * (1 - terminal_n)
-        target = target.detach()
-
+        # compute the loss
         assert q_t_values_1.shape == target.shape, f"q_t_values_1={q_t_values_1.shape}, target={target.shape}"
         assert q_t_values_2.shape == target.shape, f"q_t_values_2={q_t_values_2.shape}, target={target.shape}"
         loss = self.loss(q_t_values_1, target) + self.loss(q_t_values_2, target)
 
+        # optimize the critic
         self.optimizer.zero_grad()
         loss.backward()
-        utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
+        utils.clip_grad_value_(list(self.q_net.parameters()) + list(self.q_net_2.parameters()), self.grad_norm_clipping)
         self.optimizer.step()
         # self.learning_rate_scheduler.step()
         return {

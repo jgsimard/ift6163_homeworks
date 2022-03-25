@@ -1,7 +1,15 @@
 import glob
 import numpy as np
+
 import tensorflow.compat.v1 as tf
 import matplotlib.pyplot as plt
+
+
+
+# remove the tensorflow warnings, I dont care
+import tensorflow.python.util.deprecation as deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
+
 
 
 def get_section_results(file):
@@ -29,18 +37,25 @@ def get_section_results(file):
     return np.array(steps), np.array(train_avg_return), np.array(train_std_return)
 
 
-# def plot_train(eventfile, name, step_size=5, color_dict=None):
-#     steps, eval_avg_return, eval_std_return, train_avg_return, train_std_return = get_section_results(eventfile)
-#     batch_steps = np.arange(0, len(eval_avg_return)) * step_size
-#     if color_dict is None:
-#         plt.plot(batch_steps, eval_avg_return, label=name)
-#         plt.fill_between(batch_steps, eval_avg_return - eval_std_return, eval_avg_return + eval_std_return, alpha=0.2)
-#     else:
-#         print(name)
-#         color = color_dict[name]
-#         plt.plot(batch_steps, eval_avg_return, label=name, color=color)
-#         plt.fill_between(batch_steps, eval_avg_return - eval_std_return, eval_avg_return + eval_std_return, alpha=0.2,
-#                          color=color)
+def get_section_results2(file):
+    steps = []
+    eval_avg_return,  eval_std_return = [], []
+    train_avg_return, train_std_return = [], []
+    # print([e for e in tf.train.summary_iterator(file)])
+    for e in tf.train.summary_iterator(file):
+        for v in e.summary.value:
+            if v.tag == 'Train_EnvstepsSoFar':
+                steps.append(v.simple_value)
+
+            if v.tag == 'Eval_AverageReturn':
+                eval_avg_return.append(v.simple_value)
+
+            if v.tag == 'Eval_StdReturn':
+                eval_std_return.append(v.simple_value)
+
+    return np.array(steps), np.array(eval_avg_return), np.array(eval_std_return)
+
+
 
 def pad(base, x):
     return np.pad(x, (len(base) - len(x), 0), 'constant', constant_values=(-np.infty, 0))
@@ -60,6 +75,18 @@ def q1(eventfiles):
     plt.savefig(f'q1.png')
     plt.show()
 
+
+def get_stats(ef):
+    steps, train_avg_return, train_max_return = [], [], []
+    for eventfile in ef:
+        s, r, b = get_section_results2(eventfile)
+        steps.append(s)
+        train_avg_return.append(pad(s, r))
+        train_max_return.append(pad(s, b))
+    steps = np.stack(steps) / 1e6
+    train_avg_return = np.vstack(train_avg_return)
+    train_max_return = np.vstack(train_max_return)
+    return steps, train_avg_return, train_max_return
 
 def q2(eventfiles):
     eventfiles = [e for e in eventfiles if "q2" in e]
@@ -109,6 +136,146 @@ def q2(eventfiles):
     plt.show()
 
 
+def q4(eventfiles):
+    eventfiles = [e for e in eventfiles if "q4" in e]
+    tested_lr = [0.0002, 0.0005, 0.001, 0.002]
+    # tested_lr = [0.002]
+    for lr in tested_lr:
+        eventfiles_lr = [e for e in eventfiles if f"q4_ddpg_lr{lr}_seed" in e]
+        # print(f"{lr} ================ {eventfiles}")
+        steps, train_avg_return, train_max_return = get_stats(eventfiles_lr)
+        steps = steps[0]
+        N = 10
+        steps, train_avg_return, train_max_return = steps[1::N], train_avg_return[:, 1::N], train_max_return[:, 1::N]
+        def p(s, v, name):
+            s = s * 1000
+            plt.plot(s, np.median(v, 0), label=name)
+            plt.fill_between(s, np.min(v, 0), np.max(v, 0), alpha=0.2)
+
+        p(steps, train_avg_return, f"{lr}")
+
+    plt.title("Experiment 4 - Learning Rate")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.savefig(f'q4-lr.png')
+    plt.show()
+
+    tested_up = [1, 2, 4]
+    for up in tested_up:
+        eventfiles_up = [e for e in eventfiles if f"q4_ddpg_up{up}_seed" in e]
+        steps, train_avg_return, train_max_return = get_stats(eventfiles_up)
+        steps = steps[0]
+        if len(steps) > 200:
+            N = 10
+            steps, train_avg_return, train_max_return = steps[1::N], train_avg_return[:, 1::N], train_max_return[:, 1::N]
+
+        def p(s, v, name):
+            s = s * 1000
+            plt.plot(s, np.median(v, 0), label=name)
+            plt.fill_between(s, np.min(v, 0), np.max(v, 0), alpha=0.2)
+
+        p(steps, train_avg_return, f"{up}")
+
+    plt.title("Experiment 4 - Policy Update Rate")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.savefig(f'q4-up.png')
+    plt.show()
+def q5(eventfiles):
+    def p(s, avg, std, name):
+        s = s/1000
+        plt.plot(s, avg, label=name)
+        plt.fill_between(s, avg - std, avg + std, alpha=0.2)
+
+    eventfile_ddpg = [e for e in eventfiles if "q5" in e][0]
+    s, avg, std = get_section_results2(eventfile_ddpg)
+    p(s, avg, std, 'ddpg')
+
+
+    plt.title("Experiment 5 - DDPG")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.grid()
+    plt.savefig(f'q5.png')
+    plt.show()
+
+def q6(eventfiles):
+    eventfiles = [e for e in eventfiles if "q6" in e]
+    tested_rho = [0.1, 0.2, 0.5]
+    for rho in tested_rho:
+        eventfiles_rho = [e for e in eventfiles if f"q6_td3_rho{rho}_seed" in e]
+        steps, train_avg_return, train_max_return = get_stats(eventfiles_rho)
+        steps = steps[0]
+        N = 10
+        steps, train_avg_return, train_max_return = steps[1::N], train_avg_return[:, 1::N], train_max_return[:, 1::N]
+        def p(s, v, name):
+            s = s * 1000
+            plt.plot(s, np.median(v, 0), label=name)
+            plt.fill_between(s, np.min(v, 0), np.max(v, 0), alpha=0.2)
+
+        p(steps, train_avg_return, f"{rho}")
+
+    plt.title("Experiment 6 - Rho")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.savefig(f'q6-rho.png')
+    plt.show()
+
+    tested_size = [64, 128, 256]
+    for size in tested_size:
+        eventfiles_up = [e for e in eventfiles if f"q6_td3_size{size}_seed" in e]
+        steps, train_avg_return, train_max_return = get_stats(eventfiles_up)
+        steps = steps[0]
+        if len(steps) > 200:
+            N = 10
+            steps, train_avg_return, train_max_return = steps[1::N], train_avg_return[:, 1::N], train_max_return[:, 1::N]
+
+        def p(s, v, name):
+            s = s * 1000
+            plt.plot(s, np.median(v, 0), label=name)
+            plt.fill_between(s, np.min(v, 0), np.max(v, 0), alpha=0.2)
+
+        p(steps, train_avg_return, f"{size}")
+
+    plt.title("Experiment 6 - Size")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.savefig(f'q6-size.png')
+    plt.show()
+
+
+def q7(eventfiles):
+    def p(s, avg, std, name):
+        s = s/1000
+        plt.plot(s, avg, label=name)
+        plt.fill_between(s, avg - std, avg + std, alpha=0.2)
+
+    eventfile_ddpg = [e for e in eventfiles if "q5" in e][0]
+    s, avg, std = get_section_results2(eventfile_ddpg)
+    p(s, avg, std, 'ddpg')
+
+    # eventfile_td3 = [e for e in eventfiles if "q7_td3" in e][0]
+    # s, avg, std = get_section_results2(eventfile_td3)
+    # p(s, avg, std, 'td3')
+
+    eventfile_td3 = [e for e in eventfiles if "q7_2_td3" in e][0]
+    s, avg, std = get_section_results2(eventfile_td3)
+    p(s, avg, std, 'td3')
+
+    plt.title("Experiment 7 - DDPG vs TD3")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((x1, x2, -150, y2))
+    plt.legend(loc="best")
+    plt.grid()
+    plt.savefig(f'q7.png')
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -123,4 +290,3 @@ if __name__ == '__main__':
     # q5(eventfiles)
     # q6(eventfiles)
     # q7(eventfiles)
-    # q8(eventfiles)

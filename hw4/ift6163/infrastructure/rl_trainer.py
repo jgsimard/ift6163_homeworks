@@ -3,6 +3,7 @@ import pickle
 import os
 import sys
 import time
+import random
 
 import gym
 from gym import wrappers
@@ -41,6 +42,7 @@ class RL_Trainer(object):
         seed = self.params['seed']
         np.random.seed(seed)
         torch.manual_seed(seed)
+        random.seed(seed) # BUG : need to had this to be really reproducable
         ptu.init_gpu(
             use_gpu=not self.params['no_gpu'],
             gpu_id=self.params['which_gpu']
@@ -75,6 +77,7 @@ class RL_Trainer(object):
             self.best_mean_episode_reward = -float('inf')
 
         self.env.seed(seed)
+        self.env.action_space.seed(seed)
 
         # import plotting (locally if 'obstacles' env)
         if not(self.params['env_name']=='obstacles-ift6163-v0'):
@@ -135,7 +138,7 @@ class RL_Trainer(object):
         self.total_envsteps = 0
         self.start_time = time.time()
 
-        print_period = 1000 if isinstance(self.agent, DQNAgent) or  isinstance(self.agent, DDPGAgent) else 1
+        print_period = 1000 if isinstance(self.agent, DQNAgent) or isinstance(self.agent, DDPGAgent) else 1
         # if isinstance(self.agent, DDPGAgent):
         #     print_period=50
         for itr in range(n_iter):
@@ -341,7 +344,7 @@ class RL_Trainer(object):
             print('Collecting video rollouts eval')
             eval_video_paths = utils.sample_n_trajectories(self.env, eval_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
-            #save train/eval videos
+            # save train/eval videos
             print('Saving train rollouts as videos...')
             self.logger.log_paths_as_videos(train_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
                                             video_title='train_rollouts')

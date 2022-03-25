@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from ift6163.infrastructure.replay_buffer import ReplayBuffer
 from ift6163.infrastructure.dqn_utils import MemoryOptimizedReplayBuffer
@@ -24,6 +25,11 @@ class DDPGAgent(object):
         self.learning_freq = agent_params['learning_freq']
         self.target_update_freq = agent_params['target_update_freq']
         self.policy_delay = 1 if agent_params['policy_delay'] == -1 else agent_params['policy_delay']
+        self.exploration_noise = agent_params['exploration_noise']
+        self.action_min = ptu.from_numpy(env.action_space.low)
+        self.action_max = ptu.from_numpy(env.action_space.high)
+        print(f"self.action_min={self.action_min}, self.action_max={self.action_max}")
+
 
         self.replay_buffer_idx = None
         self.optimizer_spec = agent_params['optimizer_spec']
@@ -35,14 +41,16 @@ class DDPGAgent(object):
             self.agent_params['size'],
             discrete=self.agent_params['discrete'],
             learning_rate=self.agent_params['learning_rate'],
-            nn_baseline=False
+            nn_baseline=False,
+            amplitude_action=env.action_space.high,
+            activation=agent_params['activation'],
         )
         print("Actor")
         print(self.actor)
-        ## Create the Q function
+        # Create the Q function
         self.q_fun = DDPGCritic(self.actor, agent_params, self.optimizer_spec)
 
-        ## Hint: We can use the Memory optimized replay buffer but now we have continuous actions
+        # Hint: We can use the Memory optimized replay buffer but now we have continuous actions
         self.replay_buffer = MemoryOptimizedReplayBuffer(
             agent_params['replay_buffer_size'], agent_params['frame_history_len'], lander=True,
             continuous_actions=True, ac_dim=self.agent_params['ac_dim'])
@@ -61,29 +69,27 @@ class DDPGAgent(object):
         """        
 
         # DONE : store the latest observation ("frame") into the replay buffer
-        # HINT: the replay buffer used here is `MemoryOptimizedReplayBuffer`
-            # in dqn_utils.py
         self.replay_buffer_idx = self.replay_buffer.store_frame(self.last_obs)
 
         # DONE : add noise to the deterministic policy
-        observation = self.replay_buffer.encode_recent_observation()
-        observation = ptu.from_numpy(observation)
-        action = self.actor(observation)
-        # print(action)
-        action = ptu.to_numpy(action)
+        perform_random_action = self.t < self.learning_starts
+        if perform_random_action:
+            action = self.env.action_space.sample()
+        else:
+            observation = self.replay_buffer.encode_recent_observation()
+            observation = ptu.from_numpy(observation)
+            action = self.actor(observation)  # deterministic action
+            action = action + torch.randn_like(action) * self.exploration_noise # add exploration noise
+            action = action.clamp(self.action_min, self.action_max)  # clip the action to what is allowed
+            action = ptu.to_numpy(action)
         
-        # DONE :  take a step in the environment using the action from the policy
-        # HINT1: remember that self.last_obs must always point to the newest/latest observation
-        # HINT2: remember the following useful function that you've seen before:
-            #obs, reward, done, info = env.step(action)
+        # DONE : take a step in the environment using the action from the policy
         self.last_obs, reward, done, info = self.env.step(action)
 
         # DONE : store the result of taking this action into the replay buffer
-        # HINT1: see your replay buffer's `store_effect` function
-        # HINT2: one of the arguments you'll need to pass in is self.replay_buffer_idx from above
         self.replay_buffer.store_effect(self.replay_buffer_idx, action, reward, done)
 
-        # DONE : if taking this step resulted in done, reset the env (and the latest observation)
+        # DONE : if taking this step resulted in done, reset the env and the latest observation
         if done:
             self.last_obs = self.env.reset()
 
@@ -91,11 +97,10 @@ class DDPGAgent(object):
         if self.replay_buffer.can_sample(self.batch_size):
             return self.replay_buffer.sample(batch_size)
         else:
-            return [],[],[],[],[]
+            return [], [], [], [], []
 
     def train(self, ob_no, ac_na, re_n, next_ob_no, terminal_n):
         log = {}
-        # print(self.t > self.learning_starts, self.t % self.learning_freq == 0, self.replay_buffer.can_sample(self.batch_size))
         if (self.t > self.learning_starts
                 and self.t % self.learning_freq == 0
                 and self.replay_buffer.can_sample(self.batch_size)
@@ -110,11 +115,10 @@ class DDPGAgent(object):
             ## Hint the actor will need a copy of the q_net to maximize the Q-function
             if self.num_param_updates % self.policy_delay == 0:
                 log.update(self.actor.update(
-                    ob_no, self.q_fun
+                    ob_no, self.q_fun.q_net
                 ))
 
             # DONE : update the target network periodically
-            # HINT: your critic already has this functionality implemented
             if self.num_param_updates % self.target_update_freq == 0:
                 self.q_fun.update_target_network()
 

@@ -109,7 +109,6 @@ def my_app(cfg: DictConfig):
     trainer.run_training_loop()
 
 
-
 if __name__ == "__main__":
     import os
     print("Command Dir:", os.getcwd())

@@ -28,6 +28,8 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                  training=True,
                  nn_baseline=False,
                  deterministic=False,
+                 amplitude_action=None,
+                 activation='tanh',
                  **kwargs
                  ):
         super().__init__(**kwargs)
@@ -36,9 +38,9 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
         if self._discrete:
             self._logits_na = ptu.build_mlp(input_size=self._ob_dim,
-                                           output_size=self._ac_dim,
-                                           n_layers=self._n_layers,
-                                           size=self._size)
+                                            output_size=self._ac_dim,
+                                            n_layers=self._n_layers,
+                                            size=self._size)
             self._logits_na.to(ptu.device)
             self._mean_net = None
             self._logstd = None
@@ -47,9 +49,17 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         else:
             self._logits_na = None
             self._mean_net = ptu.build_mlp(input_size=self._ob_dim,
-                                      output_size=self._ac_dim,
-                                      n_layers=self._n_layers, size=self._size)
+                                           output_size=self._ac_dim,
+                                           n_layers=self._n_layers,
+                                           size=self._size,
+                                           activation=activation,
+                                           output_activation='identity' if amplitude_action is None else 'tanh')
             self._mean_net.to(ptu.device)
+            print(f"amplitude_action={amplitude_action}")
+            if amplitude_action is None:
+                self.amplitude_action = 1.0
+            else:
+                self.amplitude_action = ptu.from_numpy(amplitude_action).view(1, -1)
             if self._deterministic:
                 self._optimizer = optim.Adam(
                     itertools.chain(self._mean_net.parameters()),
@@ -119,8 +129,8 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             return action_distribution
         else:
             if self._deterministic:
-                ##  DONE :  output for a deterministic policy
                 action_distribution = self._mean_net(observation)
+                action_distribution = action_distribution * self.amplitude_action
             else:
                 batch_mean = self._mean_net(observation)
                 scale_tril = torch.diag(torch.exp(self._logstd))
@@ -244,6 +254,7 @@ class ConcatMLP(MLPPolicy):
         self._dim = dim
 
     def forward(self, *inputs, **kwargs):
+        # print(inputs[0].shape, inputs[1].shape)
         flat_inputs = torch.cat(inputs, dim=self._dim)
         return super().forward(flat_inputs, **kwargs)
 
@@ -260,26 +271,30 @@ class MLPPolicyDeterministic(MLPPolicy):
         # TODO: update the policy and return the loss
         ## Hint you will need to use the q_fun for the loss
         ## Hint: do not update the parameters for q_fun in the loss
-
+        # numpy -> pytorch
         observations = ptu.from_numpy(observations)
 
+        # compute best action using the actor/policy
         max_action = self.forward(observations)
 
-        # freeze the critic
-        for param in q_fun.q_net.parameters():
-            param.requires_grad = False
+        # freeze critic
+        for p in q_fun.parameters():
+            p.requires_grad = False
 
-        q_values = q_fun.q_net(observations, max_action)
+        # compute q_values
+        q_values = q_fun(observations, max_action)
 
+        # compute the loss
         loss = -q_values.mean()  # the minus is because we want to maximize the q_values
 
+        # update the policy weights
         self._optimizer.zero_grad()
         loss.backward()
         self._optimizer.step()
 
-        # unfreeze the critic
-        for param in q_fun.q_net.parameters():
-            param.requires_grad = True
+        # UNfreeze critic
+        for p in q_fun.parameters():
+            p.requires_grad = True
 
         train_log = {
             'Train_Policy_Loss': ptu.to_numpy(loss),
