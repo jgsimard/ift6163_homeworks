@@ -73,7 +73,7 @@ def my_app(cfg: DictConfig):
     for key, value in cfg.items():
         params[key] = value
     if cfg['atari']:
-        env_args = get_env_kwargs(cfg['env_name'])
+        env_args = get_env_kwargs(cfg['env_name'], cfg)
         for key, value in env_args.items():
             params[key] = value
     print ("params: ", params)

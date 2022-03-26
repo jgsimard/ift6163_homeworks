@@ -37,7 +37,7 @@ def register_custom_envs():
         )
 
 
-def get_env_kwargs(env_name):
+def get_env_kwargs(env_name,  cfg):
     print("############ HELLO IS THIS ME YOUR LOOKING FOR ##################")
     if env_name in ['MsPacman-v0', 'PongNoFrameskip-v4']:
         print("CANAARD ##################")
@@ -63,7 +63,7 @@ def get_env_kwargs(env_name):
         def lunar_empty_wrapper(env):
             return env
         kwargs = {
-            'optimizer_spec': lander_optimizer(),
+            'optimizer_spec': lander_optimizer(cfg['learning_rate']),
             'q_func': create_lander_q_network,
             'replay_buffer_size': 50000,
             'batch_size': 32,
@@ -165,13 +165,13 @@ def atari_optimizer(num_timesteps):
     )
 
 
-def lander_optimizer():
+def lander_optimizer(lr=1e-3):
     return OptimizerSpec(
         constructor=optim.Adam,
         optim_kwargs=dict(
             lr=1,
         ),
-        learning_rate_schedule=lambda epoch: 1e-3,  # keep init learning rate
+        learning_rate_schedule=lambda epoch: lr,  # keep init learning rate
     )
 
 

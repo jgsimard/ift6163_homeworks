@@ -136,6 +136,72 @@ def q2(eventfiles):
     plt.show()
 
 
+def q3(eventfiles):
+    def get_stats(ef):
+        steps, train_avg_return, train_max_return = [], [], []
+        for eventfile in ef:
+            s, r, b = get_section_results(eventfile)
+            steps.append(s)
+            train_avg_return.append(pad(s, r))
+            train_max_return.append(pad(s, b))
+        steps = np.stack(steps) / 1e6
+        train_avg_return = np.vstack(train_avg_return)
+        train_max_return = np.vstack(train_max_return)
+        return steps, train_avg_return, train_max_return
+
+
+    eventfiles = [e for e in eventfiles if "q3" in e]
+    print(f"len(eventfiles)={len(eventfiles)}")
+    # tested_lr = [0.0002, 0.0005, 0.001, 0.002]
+    tested_lr = [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01]
+    for lr in tested_lr:
+        eventfiles_lr = [e for e in eventfiles if f"q3_lr{lr}_seed" in e]
+        print(f"len(eventfiles_lr)={len(eventfiles_lr)}, lr={lr}")
+        steps, train_avg_return, train_max_return = get_stats(eventfiles_lr)
+        steps = steps[0]
+        print(steps.shape, train_avg_return.shape, train_max_return.shape)
+        # print(train_avg_return)
+        # plt.plot(steps, train_avg_return[0])
+        # N = 10
+        # steps, train_avg_return, train_max_return = steps[1::N], train_avg_return[:, 1::N], train_max_return[:, 1::N]
+        def p(s, v, name):
+            s = s * 1000
+            plt.plot(s, np.median(v, 0), label=name)
+            plt.fill_between(s, np.min(v, 0), np.max(v, 0), alpha=0.2)
+
+        p(steps, train_avg_return, f"{lr}")
+
+    plt.title("Experiment 3 - Mean Reward ")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.savefig(f'q3-mean.png')
+    plt.show()
+
+    for lr in tested_lr:
+        eventfiles_lr = [e for e in eventfiles if f"q3_lr{lr}_seed" in e]
+        print(f"len(eventfiles_lr)={len(eventfiles_lr)}, lr={lr}")
+        steps, train_avg_return, train_max_return = get_stats(eventfiles_lr)
+        steps = steps[0]
+        print(steps.shape, train_avg_return.shape, train_max_return.shape)
+        # print(train_avg_return)
+        # plt.plot(steps, train_avg_return[0])
+        # N = 10
+        # steps, train_avg_return, train_max_return = steps[1::N], train_avg_return[:, 1::N], train_max_return[:, 1::N]
+        def p(s, v, name):
+            s = s * 1000
+            plt.plot(s, np.median(v, 0), label=name)
+            plt.fill_between(s, np.min(v, 0), np.max(v, 0), alpha=0.2)
+
+        p(steps, train_max_return, f"{lr}")
+
+    plt.title("Experiment 3 - Best Reward")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Thousands steps")
+    plt.legend(loc="best")
+    plt.savefig(f'q3-best.png')
+    plt.show()
+
 def q4(eventfiles):
     eventfiles = [e for e in eventfiles if "q4" in e]
     tested_lr = [0.0002, 0.0005, 0.001, 0.002]
@@ -183,6 +249,7 @@ def q4(eventfiles):
     plt.legend(loc="best")
     plt.savefig(f'q4-up.png')
     plt.show()
+
 def q5(eventfiles):
     def p(s, avg, std, name):
         s = s/1000
@@ -285,8 +352,8 @@ if __name__ == '__main__':
 
     q1(eventfiles)
     q2(eventfiles)
-    # q3(eventfiles)
-    # q4(eventfiles)
-    # q5(eventfiles)
-    # q6(eventfiles)
-    # q7(eventfiles)
+    q3(eventfiles)
+    q4(eventfiles)
+    q5(eventfiles)
+    q6(eventfiles)
+    q7(eventfiles)

@@ -1,6 +1,7 @@
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jgsimard/.mujoco/mujoco200/bin
 N_ITER=200000
-LR=0.0003
+#LR=0.0003
+LR=0.002
 RHO=0.2
 SIZE=256
 python run_hw4.py exp_name=q7_td3\
