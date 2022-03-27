@@ -14,6 +14,8 @@ class DQNAgent(object):
         # import ipdb; ipdb.set_trace()
         self.last_obs = self.env.reset()
 
+        self.dueling = agent_params['dueling'] # bonus stuff
+
         self.num_actions = self.env.action_space.n
         self.learning_starts = agent_params['learning_starts']
         self.learning_freq = agent_params['learning_freq']
@@ -31,6 +33,8 @@ class DQNAgent(object):
             agent_params['replay_buffer_size'], agent_params['frame_history_len'], lander=lander)
         self.t = 0
         self.num_param_updates = 0
+
+
 
     def add_to_replay_buffer(self, paths):
         pass

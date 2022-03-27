@@ -12,6 +12,11 @@ from ift6163.infrastructure.atari_wrappers import wrap_deepmind
 from gym.envs.registration import register
 import ift6163.util.class_util as classu
 
+from ift6163.infrastructure import pytorch_util as ptu
+import torch.nn.functional as F
+import math
+
+
 import torch
 
 
@@ -85,15 +90,54 @@ def get_env_kwargs(env_name,  cfg):
     return kwargs
 
 
-def create_lander_q_network(ob_dim, num_actions):
+class DuelingQnetworkLander(nn.Module):
+    def __init__(self, ob_dim, num_actions, noisy=False):
+        super(DuelingQnetworkLander, self).__init__()
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(ob_dim, 64),
+            nn.ReLU()
+            # nn.Linear(64, 64),
+            # nn.ReLU(),
+            # nn.Linear(64, num_actions),
+        )
+        Linear = nn.Linear
+        self.advantage_stream = nn.Sequential(
+            # nn.Linear(ob_dim, 64),
+            # nn.ReLU(),
+            Linear(64, 64),
+            nn.ReLU(),
+            Linear(64, num_actions),
+        )
+        self.value_stream = nn.Sequential(
+            # nn.Linear(ob_dim, 64),
+            # nn.ReLU(),
+            Linear(64, 64),
+            nn.ReLU(),
+            Linear(64, 1),
+        )
+
+    def forward(self, obs):
+        feature = self.feature_extractor(obs)
+        value = self.value_stream(feature)
+        advantage = self.advantage_stream(feature)
+        # print(value.shape, advantage.shape, advantage.mean(dim=1).shape, advantage.mean(dim=1, keepdim=True).shape)
+        return value + advantage - advantage.mean(dim=1, keepdim=True)
+
+
+def create_lander_q_network(ob_dim, num_actions, dueling=False, noisy=False):
     print("################# create_lander_q_network #############")
-    return nn.Sequential(
-        nn.Linear(ob_dim, 64),
-        nn.ReLU(),
-        nn.Linear(64, 64),
-        nn.ReLU(),
-        nn.Linear(64, num_actions),
-    )
+    if dueling:
+        q_network = DuelingQnetworkLander(ob_dim, num_actions)
+    else:
+        Linear = NoisyLinear if noisy else nn.Linear
+        q_network = nn.Sequential(
+            nn.Linear(ob_dim, 64),
+            nn.ReLU(),
+            Linear(64, 64),
+            nn.ReLU(),
+            Linear(64, num_actions),
+        )
+    return q_network
 
 class Ipdb(nn.Module):
     def __init__(self):

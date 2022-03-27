@@ -118,6 +118,7 @@ def q2(eventfiles):
     plt.ylabel("Average Episode Return")
     plt.xlabel("Million steps")
     plt.legend(loc="best")
+    plt.grid()
     x1, x2, y1, y2 = plt.axis()
     plt.axis((x1, x2, -300, 150))
     plt.savefig(f'q2-median.png')
@@ -130,6 +131,7 @@ def q2(eventfiles):
     plt.ylabel("Best Episode Return")
     plt.xlabel("Million steps")
     plt.legend(loc="best")
+    plt.grid()
     plt.savefig(f'q2-best.png')
     x1, x2, y1, y2 = plt.axis()
     plt.axis((x1, x2, -150, 150))
@@ -315,7 +317,6 @@ def q6(eventfiles):
     plt.savefig(f'q6-size.png')
     plt.show()
 
-
 def q7(eventfiles):
     def p(s, avg, std, name):
         s = s/1000
@@ -344,16 +345,76 @@ def q7(eventfiles):
     plt.savefig(f'q7.png')
     plt.show()
 
+def bonus(eventfiles):
+    eventfiles_ = [e for e in eventfiles if "q2" in e]
+    eventfiles_dqn = [e for e in eventfiles_ if "_dqn_" in e]
+    eventfiles_doubledqn = [e for e in eventfiles_ if "_doubledqn_" in e]
+    # print(eventfiles)
+    def get_stats(ef):
+        steps,  train_avg_return, train_max_return = [], [], []
+        for eventfile in ef:
+            s, r, b =get_section_results(eventfile)
+            steps.append(s)
+            train_avg_return.append(pad(s, r))
+            train_max_return.append(pad(s, b))
+        # print([s.shape for s in steps])
+        steps = np.stack(steps) / 1e6
+        train_avg_return = np.vstack(train_avg_return)
+        train_max_return = np.vstack(train_max_return)
+        print(steps.shape)
+        return steps, train_avg_return, train_max_return
+
+    eventfiles_ = [e for e in eventfiles if "bonus" in e]
+    eventfiles_dqn_double_dueling = [e for e in eventfiles_ if "_dqn_double_dueling" in e]
+
+    steps_dqn, train_avg_return_dqn, train_max_return_dqn = get_stats(eventfiles_dqn)
+    steps_ddqn, train_avg_return_ddqn, train_max_return_ddqn = get_stats(eventfiles_doubledqn)
+    steps_ddqn_dueling, train_avg_return_ddqn_dueling, train_max_return_ddqn_dueling = get_stats(eventfiles_dqn_double_dueling)
+
+
+    def p(s, v, name):
+        plt.plot(s[0], np.median(v, 0), label=name)
+        plt.fill_between(s[0], v.min(0), v.max(0), alpha=0.2)
+
+
+    p(steps_dqn, train_avg_return_dqn, 'dqn')
+    p(steps_ddqn, train_avg_return_ddqn, '+double')
+    p(steps_ddqn_dueling, train_avg_return_ddqn_dueling, '+double+dueling')
+
+    plt.title("Experiment Bonus - Median Reward")
+    plt.ylabel("Average Episode Return")
+    plt.xlabel("Million steps")
+    plt.legend(loc="best")
+    plt.grid()
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((x1, x2, -300, y2))
+    plt.savefig(f'bonus-median.png')
+    plt.show()
+
+    p(steps_dqn, train_max_return_dqn, 'dqn')
+    p(steps_ddqn, train_max_return_ddqn, 'double dqn')
+    p(steps_ddqn_dueling, train_max_return_ddqn_dueling, '+double+dueling')
+
+    plt.title("Experiment Bonus - Best Reward")
+    plt.ylabel("Best Episode Return")
+    plt.xlabel("Million steps")
+    plt.legend(loc="best")
+    plt.grid()
+    plt.savefig(f'bonus-best.png')
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((x1, x2, -150, 150))
+    plt.show()
 
 if __name__ == '__main__':
     logdir = 'data/*/events*'
     eventfiles = glob.glob(logdir)
     # print(eventfiles)
 
-    q1(eventfiles)
-    q2(eventfiles)
-    q3(eventfiles)
-    q4(eventfiles)
-    q5(eventfiles)
-    q6(eventfiles)
-    q7(eventfiles)
+    # q1(eventfiles)
+    # q2(eventfiles)
+    # q3(eventfiles)
+    # q4(eventfiles)
+    # q5(eventfiles)
+    # q6(eventfiles)
+    # q7(eventfiles)
+    bonus(eventfiles)

@@ -27,15 +27,13 @@ class DQNCritic(BaseCritic):
         self.double_q = hparams['double_q']
         self.grad_norm_clipping = hparams['grad_norm_clipping']
         self.gamma = hparams['gamma']
-        if hparams['double_q']:
-            out_size = 2
-        else:
-            out_size = 1
 
+        self.dueling = hparams['dueling']  # bonus stuff
+        self.noisy = hparams['noisy_net']  # bonus stuff
         self.optimizer_spec = optimizer_spec
         network_initializer = hparams['q_func']
-        self.q_net = network_initializer(self.ob_dim, self.ac_dim)
-        self.q_net_target = network_initializer(self.ob_dim, self.ac_dim)
+        self.q_net = network_initializer(self.ob_dim, self.ac_dim, self.dueling, self.noisy)
+        self.q_net_target = network_initializer(self.ob_dim, self.ac_dim, self.dueling, self.noisy)
 
         self.optimizer = self.optimizer_spec.constructor(
             self.q_net.parameters(),
@@ -105,6 +103,9 @@ class DQNCritic(BaseCritic):
         utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
         self.optimizer.step()
         self.learning_rate_scheduler.step()
+
+        if self.noisy:
+
         return {
             'Training_Loss': ptu.to_numpy(loss),
         }

@@ -42,3 +42,6 @@ td3_target_policy_noise_clip: 0.5
 policy_delay: -1
 exploration_noise: 0.1
 activation: 'tanh'
+# Bonus DQN
+dueling : False
+noisy_net: False
