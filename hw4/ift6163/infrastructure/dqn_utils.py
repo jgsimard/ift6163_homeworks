@@ -129,13 +129,13 @@ def create_lander_q_network(ob_dim, num_actions, dueling=False, noisy=False):
     if dueling:
         q_network = DuelingQnetworkLander(ob_dim, num_actions)
     else:
-        Linear = NoisyLinear if noisy else nn.Linear
+        # Linear = NoisyLinear if noisy else nn.Linear
         q_network = nn.Sequential(
             nn.Linear(ob_dim, 64),
             nn.ReLU(),
-            Linear(64, 64),
+            nn.Linear(64, 64),
             nn.ReLU(),
-            Linear(64, num_actions),
+            nn.Linear(64, num_actions),
         )
     return q_network
 

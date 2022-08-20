@@ -46,7 +46,7 @@ class DQNCritic(BaseCritic):
         self.loss = nn.SmoothL1Loss()  # AKA Huber loss
         self.q_net.to(ptu.device)
         self.q_net_target.to(ptu.device)
-        print(self.q_net,self.q_net_target)
+        print(self.q_net, self.q_net_target)
 
     def update(self, ob_no, ac_na, next_ob_no, reward_n, terminal_n):
         """
@@ -104,7 +104,7 @@ class DQNCritic(BaseCritic):
         self.optimizer.step()
         self.learning_rate_scheduler.step()
 
-        if self.noisy:
+        # if self.noisy:
 
         return {
             'Training_Loss': ptu.to_numpy(loss),

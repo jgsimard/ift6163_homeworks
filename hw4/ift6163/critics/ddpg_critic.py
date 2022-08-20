@@ -44,18 +44,19 @@ class DDPGCritic(BaseCritic):
         hparams['ob_dim'] = hparams['ob_dim'] + hparams['ac_dim']
         print(f"hparams['ac_dim']={hparams['ac_dim']}")
         # hparams['ac_dim'] = 1
-        self.q_net = ConcatMLP(   
+        self.q_net = ConcatMLP(
             hparams['ac_dim'],
             hparams['ob_dim'],
             hparams['n_layers_critic'],
             hparams['size_hidden_critic'],
             discrete=False,
             learning_rate=hparams['critic_learning_rate'],
+
             nn_baseline=False,
             deterministic=True,
             activation=hparams['activation']
             )
-        self.q_net_target = ConcatMLP(   
+        self.q_net_target = ConcatMLP(
             hparams['ac_dim'],
             hparams['ob_dim'],
             hparams['n_layers_critic'],
@@ -69,7 +70,7 @@ class DDPGCritic(BaseCritic):
         # self.learning_rate_scheduler = optim.lr_scheduler.LambdaLR(
         #     self.optimizer,
         #     self.optimizer_spec.learning_rate_schedule,
-        # 
+        #
         self.optimizer = optim.Adam(
             self.q_net.parameters(),
             self.learning_rate,
@@ -111,7 +112,7 @@ class DDPGCritic(BaseCritic):
 
         # current q value estimate
         q_t_values = self.q_net(ob_no, ac_na).squeeze()
-        
+
         # DONE: compute the Q-values from the target network
         with torch.no_grad():
             max_action_tp1 = self.actor_target(next_ob_no)
@@ -145,6 +146,6 @@ class DDPGCritic(BaseCritic):
 
     def qa_values(self, obs):
         obs = ptu.from_numpy(obs)
-        ## HINT: the q function take two arguments  
+        ## HINT: the q function take two arguments
         qa_values = TODO
         return ptu.to_numpy(qa_values)
