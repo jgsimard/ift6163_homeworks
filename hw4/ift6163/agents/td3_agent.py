@@ -14,5 +14,8 @@ class TD3Agent(DDPGAgent):
         
         self.q_fun = TD3Critic(self.actor, 
                                agent_params, 
-                               self.optimizer_spec)
+                               self.optimizer_spec, env)
+
+        # for the Delayed part of Twin Delayed DDPG (TD3)
+        self.policy_delay = 2 if agent_params['policy_delay'] == -1 else self.policy_delay
         

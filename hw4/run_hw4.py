@@ -40,7 +40,7 @@ class offpolicy_Trainer(object):
         ## RL TRAINER
         ################
 
-        self.rl_trainer = RL_Trainer(self.params , agent_class =  agent)
+        self.rl_trainer = RL_Trainer(self.params, agent_class=agent)
 
     def run_training_loop(self):
 
@@ -73,7 +73,7 @@ def my_app(cfg: DictConfig):
     for key, value in cfg.items():
         params[key] = value
     if cfg['atari']:
-        env_args = get_env_kwargs(cfg['env_name'])
+        env_args = get_env_kwargs(cfg['env_name'], cfg)
         for key, value in env_args.items():
             params[key] = value
     print ("params: ", params)
@@ -99,7 +99,7 @@ def my_app(cfg: DictConfig):
     with open_dict(cfg):
         cfg.logdir = logdir
 
-    print("\n\n\nLOGGING TO: ", logdir, "\n\n\n")
+    print("\nLOGGING TO: ", logdir, "\n")
 
     ###################
     ### RUN TRAINING
@@ -107,7 +107,6 @@ def my_app(cfg: DictConfig):
     # cfg = OmegaConf.merge(cfg, params)
     trainer = offpolicy_Trainer(params)
     trainer.run_training_loop()
-
 
 
 if __name__ == "__main__":

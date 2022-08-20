@@ -12,6 +12,11 @@ from ift6163.infrastructure.atari_wrappers import wrap_deepmind
 from gym.envs.registration import register
 import ift6163.util.class_util as classu
 
+from ift6163.infrastructure import pytorch_util as ptu
+import torch.nn.functional as F
+import math
+
+
 import torch
 
 
@@ -37,8 +42,10 @@ def register_custom_envs():
         )
 
 
-def get_env_kwargs(env_name):
+def get_env_kwargs(env_name,  cfg):
+    print("############ HELLO IS THIS ME YOUR LOOKING FOR ##################")
     if env_name in ['MsPacman-v0', 'PongNoFrameskip-v4']:
+        print("CANAARD ##################")
         kwargs = {
             'learning_starts': 50000,
             'target_update_freq': 10000,
@@ -56,10 +63,12 @@ def get_env_kwargs(env_name):
         kwargs['exploration_schedule'] = atari_exploration_schedule(kwargs['num_timesteps'])
 
     elif env_name == 'LunarLander-v3':
+        print("TWEEEEEEEEEEEEEEEEERK")
+        # exit(1)
         def lunar_empty_wrapper(env):
             return env
         kwargs = {
-            'optimizer_spec': lander_optimizer(),
+            'optimizer_spec': lander_optimizer(cfg['learning_rate']),
             'q_func': create_lander_q_network,
             'replay_buffer_size': 50000,
             'batch_size': 32,
@@ -81,14 +90,54 @@ def get_env_kwargs(env_name):
     return kwargs
 
 
-def create_lander_q_network(ob_dim, num_actions):
-    return nn.Sequential(
-        nn.Linear(ob_dim, 64),
-        nn.ReLU(),
-        nn.Linear(64, 64),
-        nn.ReLU(),
-        nn.Linear(64, num_actions),
-    )
+class DuelingQnetworkLander(nn.Module):
+    def __init__(self, ob_dim, num_actions, noisy=False):
+        super(DuelingQnetworkLander, self).__init__()
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(ob_dim, 64),
+            nn.ReLU()
+            # nn.Linear(64, 64),
+            # nn.ReLU(),
+            # nn.Linear(64, num_actions),
+        )
+        Linear = nn.Linear
+        self.advantage_stream = nn.Sequential(
+            # nn.Linear(ob_dim, 64),
+            # nn.ReLU(),
+            Linear(64, 64),
+            nn.ReLU(),
+            Linear(64, num_actions),
+        )
+        self.value_stream = nn.Sequential(
+            # nn.Linear(ob_dim, 64),
+            # nn.ReLU(),
+            Linear(64, 64),
+            nn.ReLU(),
+            Linear(64, 1),
+        )
+
+    def forward(self, obs):
+        feature = self.feature_extractor(obs)
+        value = self.value_stream(feature)
+        advantage = self.advantage_stream(feature)
+        # print(value.shape, advantage.shape, advantage.mean(dim=1).shape, advantage.mean(dim=1, keepdim=True).shape)
+        return value + advantage - advantage.mean(dim=1, keepdim=True)
+
+
+def create_lander_q_network(ob_dim, num_actions, dueling=False, noisy=False):
+    print("################# create_lander_q_network #############")
+    if dueling:
+        q_network = DuelingQnetworkLander(ob_dim, num_actions)
+    else:
+        # Linear = NoisyLinear if noisy else nn.Linear
+        q_network = nn.Sequential(
+            nn.Linear(ob_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_actions),
+        )
+    return q_network
 
 class Ipdb(nn.Module):
     def __init__(self):
@@ -105,6 +154,7 @@ class PreprocessAtari(nn.Module):
 
 
 def create_atari_q_network(ob_dim, num_actions):
+    print("################# create_atari_q_network #############")
     return nn.Sequential(
         PreprocessAtari(),
         nn.Conv2d(in_channels=4, out_channels=32, kernel_size=8, stride=4),
@@ -159,17 +209,18 @@ def atari_optimizer(num_timesteps):
     )
 
 
-def lander_optimizer():
+def lander_optimizer(lr=1e-3):
     return OptimizerSpec(
         constructor=optim.Adam,
         optim_kwargs=dict(
             lr=1,
         ),
-        learning_rate_schedule=lambda epoch: 1e-3,  # keep init learning rate
+        learning_rate_schedule=lambda epoch: lr,  # keep init learning rate
     )
 
 
 def lander_exploration_schedule(num_timesteps):
+    print("############ lander_exploration_schedule ################")
     return PiecewiseSchedule(
         [
             (0, 1),

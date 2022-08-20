@@ -3,6 +3,7 @@ import pickle
 import os
 import sys
 import time
+import random
 
 import gym
 from gym import wrappers
@@ -41,6 +42,7 @@ class RL_Trainer(object):
         seed = self.params['seed']
         np.random.seed(seed)
         torch.manual_seed(seed)
+        random.seed(seed) # BUG : need to had this to be really reproducable
         ptu.init_gpu(
             use_gpu=not self.params['no_gpu'],
             gpu_id=self.params['which_gpu']
@@ -75,6 +77,7 @@ class RL_Trainer(object):
             self.best_mean_episode_reward = -float('inf')
 
         self.env.seed(seed)
+        self.env.action_space.seed(seed)
 
         # import plotting (locally if 'obstacles' env)
         if not(self.params['env_name']=='obstacles-ift6163-v0'):
@@ -135,17 +138,18 @@ class RL_Trainer(object):
         self.total_envsteps = 0
         self.start_time = time.time()
 
-        print_period = 1000 if isinstance(self.agent, DQNAgent) else 1
-
+        print_period = 1000 if isinstance(self.agent, DQNAgent) or isinstance(self.agent, DDPGAgent) else 1
+        # if isinstance(self.agent, DDPGAgent):
+        #     print_period=50
         for itr in range(n_iter):
             if itr % print_period == 0:
                 print("\n\n********** Iteration %i ************"%itr)
 
             # decide if videos should be rendered/logged at this iteration
             if itr % self.params['video_log_freq'] == 0 and self.params['video_log_freq'] != -1:
-                self.logvideo = True
+                self.log_video = True
             else:
-                self.logvideo = False
+                self.log_video = False
 
             # decide if metrics should be logged
             if self.params['scalar_log_freq'] == -1:
@@ -182,15 +186,18 @@ class RL_Trainer(object):
 
             # train agent (using sampled data from replay buffer)
             if itr % print_period == 0:
-                print("\nTraining agent...")
+                print("Training agent...")
             all_logs = self.train_agent()
 
             # log/save
-            if self.logvideo or self.logmetrics:
+            if self.log_video or self.logmetrics:
                 # perform logging
-                print('\nBeginning logging procedure...')
+                print('Beginning logging procedure...')
+                # print(f"all_logs={all_logs}")
                 if isinstance(self.agent, DQNAgent):
                     self.perform_dqn_logging(all_logs)
+                # elif isinstance(self.agent, DDPGAgent):
+                #     self.perform_ddpg_logging(all_logs)
                 else:
                     self.perform_logging(itr, paths, eval_policy, train_video_paths, all_logs)
 
@@ -211,13 +218,43 @@ class RL_Trainer(object):
             envsteps_this_batch: the sum over the numbers of environment steps in paths
             train_video_paths: paths which also contain videos for visualization purposes
         """
-        # TODO: get this from hw1 or hw2
+        # DONE : get this from hw1 or hw2
+        if itr == 0:
+            if initial_expertdata is not None:
+                with open('../../../' + initial_expertdata, 'rb') as file: # might need to change if want to run on windows
+                    paths = pickle.load(file)
+                return paths, 0, None
+
+        print("Collecting data to be used for training...")
+        paths, envsteps_this_batch = utils.sample_trajectories(
+            self.env,
+            collect_policy,
+            num_transitions_to_sample, #batch_size,
+            self.params['ep_len'], #self.params['env']['max_episode_length'],
+            self.params['video_log_freq'] != -1, #self.params['env']['render'],
+            # ('rgb_array')
+        )
+
+        train_video_paths = None
+        if self.log_video:
+            print('Collecting train rollouts to be used for saving videos...')
+            train_video_paths = utils.sample_n_trajectories(self.env, collect_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
         return paths, envsteps_this_batch, train_video_paths
 
     def train_agent(self):
-        # TODO: get this from hw1 or hw2
-        run = TODO
+        # DONE: get this from hw1 or hw2
+        # print('Training agent using sampled data from replay buffer...')
+        all_logs = []
+        for train_step in range(self.params['num_agent_train_steps_per_iter']):
+            # sample some data from the data buffer
+            ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch = self.agent.sample(
+                self.params['train_batch_size'])
+
+            # use the sampled data to train an agent
+            train_log = self.agent.train(ob_batch, ac_batch, re_batch, next_ob_batch, terminal_batch)
+            all_logs.append(train_log)
+        return all_logs
 
     ####################################
     ####################################
@@ -253,7 +290,7 @@ class RL_Trainer(object):
         for key, value in logs.items():
             print('{} : {}'.format(key, value))
             self.logger.log_scalar(value, key, self.agent.t)
-        print('Done logging...\n\n')
+        print('Done logging...\n')
 
         self.logger.flush()
         
@@ -299,16 +336,16 @@ class RL_Trainer(object):
         #######################
 
         # collect eval trajectories, for logging
-        print("\nCollecting data for eval...")
+        print("Collecting data for eval...")
         eval_paths, eval_envsteps_this_batch = utils.sample_trajectories(self.env, eval_policy, self.params['eval_batch_size'], self.params['ep_len'])
 
         # save eval rollouts as videos in tensorboard event file
-        if self.logvideo and train_video_paths != None:
-            print('\nCollecting video rollouts eval')
+        if self.log_video and train_video_paths != None:
+            print('Collecting video rollouts eval')
             eval_video_paths = utils.sample_n_trajectories(self.env, eval_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
-            #save train/eval videos
-            print('\nSaving train rollouts as videos...')
+            # save train/eval videos
+            print('Saving train rollouts as videos...')
             self.logger.log_paths_as_videos(train_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
                                             video_title='train_rollouts')
             self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
@@ -318,12 +355,18 @@ class RL_Trainer(object):
 
         # save eval metrics
         if self.logmetrics:
+            # print(f"paths={paths}")
+            # if paths is None:
+            #     print("no paths to log")
+
             # returns, for logging
-            train_returns = [path["reward"].sum() for path in paths]
+            if paths is not None:
+                train_returns = [path["reward"].sum() for path in paths]
             eval_returns = [eval_path["reward"].sum() for eval_path in eval_paths]
 
             # episode lengths, for logging
-            train_ep_lens = [len(path["reward"]) for path in paths]
+            if paths is not None:
+                train_ep_lens = [len(path["reward"]) for path in paths]
             eval_ep_lens = [len(eval_path["reward"]) for eval_path in eval_paths]
 
             # decide what to log
@@ -334,24 +377,27 @@ class RL_Trainer(object):
             logs["Eval_MinReturn"] = np.min(eval_returns)
             logs["Eval_AverageEpLen"] = np.mean(eval_ep_lens)
 
-            logs["Train_AverageReturn"] = np.mean(train_returns)
-            logs["Train_StdReturn"] = np.std(train_returns)
-            logs["Train_MaxReturn"] = np.max(train_returns)
-            logs["Train_MinReturn"] = np.min(train_returns)
-            logs["Train_AverageEpLen"] = np.mean(train_ep_lens)
+            if paths is not None:
+                logs["Train_AverageReturn"] = np.mean(train_returns)
+                logs["Train_StdReturn"] = np.std(train_returns)
+                logs["Train_MaxReturn"] = np.max(train_returns)
+                logs["Train_MinReturn"] = np.min(train_returns)
+                logs["Train_AverageEpLen"] = np.mean(train_ep_lens)
 
             logs["Train_EnvstepsSoFar"] = self.total_envsteps
             logs["TimeSinceStart"] = time.time() - self.start_time
             logs.update(last_log)
 
             if itr == 0:
-                self.initial_return = np.mean(train_returns)
-            logs["Initial_DataCollection_AverageReturn"] = self.initial_return
+                if paths is not None:
+                    self.initial_return = np.mean(train_returns)
+            if paths is not None:
+                logs["Initial_DataCollection_AverageReturn"] = self.initial_return
 
             # perform the logging
             for key, value in logs.items():
                 print('{} : {}'.format(key, value))
                 self.logger.log_scalar(value, key, itr)
-            print('Done logging...\n\n')
+            print('Done logging...\n')
 
             self.logger.flush()

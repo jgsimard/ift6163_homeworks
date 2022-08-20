@@ -12,6 +12,8 @@ from torch import distributions
 
 from ift6163.infrastructure import pytorch_util as ptu
 from ift6163.policies.base_policy import BasePolicy
+from ift6163.infrastructure.utils import normalize
+
 
 class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
@@ -26,6 +28,8 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                  training=True,
                  nn_baseline=False,
                  deterministic=False,
+                 amplitude_action=None,
+                 activation='tanh',
                  **kwargs
                  ):
         super().__init__(**kwargs)
@@ -34,9 +38,9 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
         if self._discrete:
             self._logits_na = ptu.build_mlp(input_size=self._ob_dim,
-                                           output_size=self._ac_dim,
-                                           n_layers=self._n_layers,
-                                           size=self._size)
+                                            output_size=self._ac_dim,
+                                            n_layers=self._n_layers,
+                                            size=self._size)
             self._logits_na.to(ptu.device)
             self._mean_net = None
             self._logstd = None
@@ -45,9 +49,17 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         else:
             self._logits_na = None
             self._mean_net = ptu.build_mlp(input_size=self._ob_dim,
-                                      output_size=self._ac_dim,
-                                      n_layers=self._n_layers, size=self._size)
+                                           output_size=self._ac_dim,
+                                           n_layers=self._n_layers,
+                                           size=self._size,
+                                           activation=activation,
+                                           output_activation='identity' if amplitude_action is None else 'tanh')
             self._mean_net.to(ptu.device)
+            print(f"amplitude_action={amplitude_action}")
+            if amplitude_action is None:
+                self.amplitude_action = 1.0
+            else:
+                self.amplitude_action = ptu.from_numpy(amplitude_action).view(1, -1)
             if self._deterministic:
                 self._optimizer = optim.Adam(
                     itertools.chain(self._mean_net.parameters()),
@@ -87,9 +99,19 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     # query the policy with observation(s) to get selected action(s)
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        # TODO: 
-        ## 
-        pass
+        # DONE: get this from HW1
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None]
+
+        observation = ptu.from_numpy(observation)
+        action_distribution = self.forward(observation)
+        if self._deterministic:
+            action = action_distribution
+        else:
+            action = action_distribution.sample()
+        return ptu.to_numpy(action)
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -107,8 +129,8 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             return action_distribution
         else:
             if self._deterministic:
-                ##  TODO output for a deterministic policy
-                action_distribution = TODO
+                action_distribution = self._mean_net(observation)
+                action_distribution = action_distribution * self.amplitude_action
             else:
                 batch_mean = self._mean_net(observation)
                 scale_tril = torch.diag(torch.exp(self._logstd))
@@ -134,7 +156,7 @@ class MLPPolicyPG(MLPPolicy):
         actions = ptu.from_numpy(actions)
         advantages = ptu.from_numpy(advantages)
 
-        # TODO: update the policy using policy gradient
+        # DONE : update the policy using policy gradient
         # HINT1: Recall that the expression that we want to MAXIMIZE
             # is the expectation over collected trajectories of:
             # sum_{t=0}^{T-1} [grad [log pi(a_t|s_t) * (Q_t - b_t)]]
@@ -144,10 +166,22 @@ class MLPPolicyPG(MLPPolicy):
         # HINT4: use self._optimizer to optimize the loss. Remember to
             # 'zero_grad' first
 
-        TODO
+        action_distribution = self.forward(observations)
+        log_prob = action_distribution.log_prob(actions)
+
+        loss = -(log_prob * advantages).mean()  # the minus is to MAXIMIZE
+
+        # optimize log_probs
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        train_log = {
+            'Training_Loss': ptu.to_numpy(loss),
+        }
 
         if self._nn_baseline:
-            ## TODO: update the neural network baseline using the q_values as
+            ## DONE: update the neural network baseline using the q_values as
             ## targets. The q_values should first be normalized to have a mean
             ## of zero and a standard deviation of one.
 
@@ -156,11 +190,26 @@ class MLPPolicyPG(MLPPolicy):
             ## HINT2: You will need to convert the targets into a tensor using
                 ## ptu.from_numpy before using it in the loss
 
-            TODO
+            # compute baselines targets
+            targets = normalize(q_values, q_values.mean(), q_values.std())
+            targets = ptu.from_numpy(targets)
 
-        train_log = {
-            'Training Loss': ptu.to_numpy(loss),
-        }
+            # compute baselines
+            baselines = self.baseline(observations).squeeze()
+            # compute loss
+            baselines_loss = self.baseline_loss(baselines, targets)
+
+            # optimize baselines
+            self.baseline_optimizer.zero_grad()
+            baselines_loss.backward()
+            self.baseline_optimizer.step()
+
+            # Record the loss
+            train_log['Baseline_Loss'] = ptu.to_numpy(baselines_loss)
+
+        # train_log = {
+        #     'Training Loss': ptu.to_numpy(loss),
+        # }
         return train_log
 
     def run_baseline_prediction(self, observations):
@@ -177,11 +226,25 @@ class MLPPolicyPG(MLPPolicy):
         pred = self._baseline(observations)
         return ptu.to_numpy(pred.squeeze())
 
+
 class MLPPolicyAC(MLPPolicy):
     def update(self, observations, actions, adv_n=None):
-        # TODO: update the policy and return the loss
+        # DONE: update the policy and return the loss
+        observations = ptu.from_numpy(observations)
+        actions = ptu.from_numpy(actions)
+        advantages = ptu.from_numpy(adv_n)
+
+        action_distribution = self.forward(observations)
+        log_prob = action_distribution.log_prob(actions)
+        loss = -(log_prob * advantages).sum()  # the minus is to MAXIMIZE
+
+        # optimize log_probs
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
         return loss.item()
-    
+
+
 class ConcatMLP(MLPPolicy):
     """
     Concatenate inputs along dimension and then pass through MLP.
@@ -191,6 +254,7 @@ class ConcatMLP(MLPPolicy):
         self._dim = dim
 
     def forward(self, *inputs, **kwargs):
+        # print(inputs[0].shape, inputs[1].shape)
         flat_inputs = torch.cat(inputs, dim=self._dim)
         return super().forward(flat_inputs, **kwargs)
 
@@ -207,4 +271,33 @@ class MLPPolicyDeterministic(MLPPolicy):
         # TODO: update the policy and return the loss
         ## Hint you will need to use the q_fun for the loss
         ## Hint: do not update the parameters for q_fun in the loss
-        return loss.item()
+        # numpy -> pytorch
+        observations = ptu.from_numpy(observations)
+
+        # compute best action using the actor/policy
+        max_action = self.forward(observations)
+
+        # freeze critic
+        for p in q_fun.parameters():
+            p.requires_grad = False
+
+        # compute q_values
+        q_values = q_fun(observations, max_action)
+
+        # compute the loss
+        loss = -q_values.mean()  # the minus is because we want to maximize the q_values
+
+        # update the policy weights
+        self._optimizer.zero_grad()
+        loss.backward()
+        self._optimizer.step()
+
+        # UNfreeze critic
+        for p in q_fun.parameters():
+            p.requires_grad = True
+
+        train_log = {
+            'Train_Policy_Loss': ptu.to_numpy(loss),
+        }
+
+        return train_log
